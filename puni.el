@@ -50,8 +50,6 @@
 (require 'cl-lib)
 (require 'rx)
 
-;;;; User options
-
 (defgroup puni nil
   "Customizable soft deletion."
   :group 'convenience
@@ -291,7 +289,6 @@ comment is newline, this goes to the point before the newline."
       ;; trailing newline.
       (when (progn (forward-comment 1)
                    (not (eq (point) from)))
-        (puni--backward-blanks)
         (setq to (point))))
     (when to (goto-char to))))
 
