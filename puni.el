@@ -1151,6 +1151,7 @@ feel."
 
 ;;;; Puni mode
 
+;;;###autoload
 (defvar puni-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "DEL") 'puni-backward-delete-char)
@@ -1170,14 +1171,16 @@ feel."
   "Keymap used for `puni-structural-editing-mode'.")
 
 ;;;###autoload
-(define-minor-mode puni-mode
-  "Enable keybindings for Puni commands."
-  :keymap puni-mode-map)
+(progn
+  (define-minor-mode puni-mode
+    "Enable keybindings for Puni commands."
+    :keymap puni-mode-map))
 
 ;;;###autoload
-(define-globalized-minor-mode puni-global-mode
-  puni-mode
-  (lambda () (puni-mode 1)))
+(progn
+  (define-globalized-minor-mode puni-global-mode
+    puni-mode
+    (lambda () (puni-mode 1))))
 
 ;;;###autoload
 (defun puni-disable-puni-mode ()
