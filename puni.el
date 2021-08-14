@@ -8,6 +8,7 @@
 ;; Keywords: convenience, lisp, tools
 ;; Homepage: https://github.com/AmaiKinono/puni
 ;; Version: 0
+;; Package-Requires: ((emacs "26.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
