@@ -14,6 +14,10 @@ compile: clean
 style:
 	$(SHELL) scripts/style.sh
 
+.PHONY: toc
+toc:
+	$(SHELL) scripts/toc.sh
+
 .PHONY: clean
 clean:
 	rm -f ./*.elc

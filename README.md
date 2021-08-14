@@ -6,6 +6,34 @@
 
 <p align="center"><i>Parentheses Universalistic</i></p>
 
+<!-- toc -->
+
+- [What is it?](#what-is-it)
+  * [A set of soft deletion commands](#a-set-of-soft-deletion-commands)
+  * [A factory of soft deletion commands](#a-factory-of-soft-deletion-commands)
+  * [Out of box support for many major modes](#out-of-box-support-for-many-major-modes)
+- [Comparison with other packages](#comparison-with-other-packages)
+  * [ParEdit & Lispy](#paredit--lispy)
+  * [Smartparens](#smartparens)
+- [Quick start](#quick-start)
+- [Commands](#commands)
+  * [Deletion commands](#deletion-commands)
+  * [Navigation commands](#navigation-commands)
+- [Define your own commands](#define-your-own-commands)
+  * [`strict-sexp`](#strict-sexp)
+  * [`style`](#style)
+  * [`fail-action`](#fail-action)
+  * [Conclusion](#conclusion)
+- [Caveats](#caveats)
+  * [Doesn't work well in some major modes](#doesnt-work-well-in-some-major-modes)
+  * [Lack of auto pairing](#lack-of-auto-pairing)
+  * [Lack of fancy sexp-manipulating commands](#lack-of-fancy-sexp-manipulating-commands)
+- [What does "Puni" means anyway?](#what-does-puni-means-anyway)
+- [Contributing](#contributing)
+- [Donation](#donation)
+
+<!-- tocstop -->
+
 ## What is it?
 
 ### A set of soft deletion commands
