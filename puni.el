@@ -423,13 +423,13 @@ END is the bound of delimiter."
 
 (defun puni--inside-delim-p (pt beg end direction)
   "See if PT is inside the delimiters at BEG or END.
-The delimiters could be multi-char (like html tags).  By
-\"inside\" we also mean \"just after the opening delimiter\", or
-\"just before the closing delimiter\".
-
 if DIRECTION is `forward', check if the char after PT is inside
 any of the delimiters, or if DIRECTION is `backward', check the
-char before PT instead."
+char before PT instead.
+
+By \"inside\" we mean: It's part of, or paired with the
+beginning/end delimiter, and deleting it will cause unbalanced
+state."
   (unless (< beg pt end) (error "PT is not between BEG and END"))
   ;; Assume a string can't be a delimiter. We also assume a symbol can't be a
   ;; delimiter.  This is not true, but many major modes thinks "a = b" is a
@@ -838,7 +838,7 @@ STYLE can be:
   reached a position at or before TO, and going over one more
   sexp will cause point to go beyond TO.
 - `beyond': Delete at least one sexps (can be empty lines) until
-  no more to delete, or we've reached a position beyond TO
+  no more to delete, or we've reached a position beyond TO.
 
 A series of consecutive whitespaces is considered a sexp.
 
