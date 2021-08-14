@@ -135,6 +135,52 @@ By taking this appraoch, Puni supports many major modes out of the box.
 
 And that really is the whole story ;)
 
+## Comparison with other packages
+
+### ParEdit & Lispy
+
+[ParEdit](https://www.emacswiki.org/emacs/ParEdit) is a minor mode for
+structured editing of Lisp code. [Lispy](https://github.com/abo-abo/lispy) is
+another one, with shorter (mostly single-key, without modifier) keybindings.
+
+These are killers in Lisp. They come with many commands that manipulates the
+syntax tree, like raise/slurp/barf/split/splice/convolute... These are some
+weird jargons, but skilled users could use them to edit Lisp in the speed of
+mind.
+
+Puni doesn't have these fancy commands, as it only focuses on soft deleting
+things. The advantages of Puni over them are:
+
+- Puni supports many major modes, not only Lisp.
+- Puni has an API for defining your own soft deletion commands.
+
+### Smartparens
+
+[Smartparens](https://github.com/Fuco1/smartparens) is ParEdit for all
+languages. And that means fancy sexp-manipulating commands for all languages!
+
+It takes a different approach than Puni: instead of making use of Emacs
+built-in mechanisms, it creates its own extensible machine for parsing pairs,
+and extend it for many languages. The result: It's around 10k lines of code,
+while Puni is around 1k lines.
+
+At present, the main problem of smartparens is many bugs aren't fixed for
+years. For example, due to changes in the architecture, HTML related
+functionality has been slowly breaking down, and there has been no effort to
+save it. Now you'll encounter many problems using smartparens in `web-mode`.
+The biggest one, to me, is `sp-kill-hybrid-sexp` (the equivalent of
+`puni-kill-line`) is not working in `web-mode`.
+
+Puni is obvious lacking in functionality compared with smartparens. But the
+advantages are:
+
+- Puni has simpler architecture and much less code, so it's easier to maintain.
+- Puni contains no language-specific logic, so there'll never be situations
+  like "I don't want to fix a bug for you because I don't use that language".
+- Again, an API for defining your own soft deletion commands.
+- At present, Puni is in a healthier state. You've already seen it works well
+  in `web-mode` ;)
+
 ## Quick start
 
 1. Clone this repository:
