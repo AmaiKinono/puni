@@ -446,7 +446,8 @@ state."
               (save-excursion
                 (goto-char beg)
                 (and (puni--begin-of-single-line-comment-p)
-                     (looking-at (rx (* (literal (char-to-string (char-after))))))
+                     (looking-at (rx (* (literal (char-to-string
+                                                  (char-after))))))
                      (> (match-end 0) (pcase direction
                                         ('forward pt)
                                         ('backward (1- pt))
@@ -663,7 +664,8 @@ hit the ending quote), return nil.
 
 Notice that a point inside the (multichar) quote is not
 considered as in the comment."
-  (puni--strict-primitive-forward-sexp-in-thing #'puni--in-comment-p "comment"))
+  (puni--strict-primitive-forward-sexp-in-thing #'puni--in-comment-p
+                                                "comment"))
 
 (defun puni-strict-backward-sexp-in-comment ()
   "Backward version of `puni-strict-forward-sexp-in-comment'."
@@ -822,7 +824,7 @@ non-nil, see the explanation in `puni-region-balance-p'."
 
 (defun puni-soft-delete
     (from to &optional strict-sexp style kill fail-action)
-    "Soft delete from point FROM to TO.
+  "Soft delete from point FROM to TO.
 If STRICT-SEXP is nil, symbol delimiters like \"if..end if\",
 \"begin..end\" and \"def\" are considered as balanced
 expressions, and can be delete safely, as it's common to delete
@@ -857,11 +859,13 @@ action after failure.  It can be:
   (setq style (or style 'precise))
   (unless (eq from to)
     (let* ((forward (< from to))
-           (move-symbol (if forward #'puni--forward-symbol #'puni--backward-symbol))
+           (move-symbol (if forward
+                            #'puni--forward-symbol #'puni--backward-symbol))
            (move-blanks (if forward
                             #'puni--forward-blanks #'puni--backward-blanks))
            (move-sexp (if forward
-                          #'puni-strict-forward-sexp #'puni-strict-backward-sexp))
+                          #'puni-strict-forward-sexp
+                        #'puni-strict-backward-sexp))
            (move (lambda ()
                    (or (unless strict-sexp
                          (funcall move-symbol
@@ -1021,7 +1025,8 @@ Continue? "))
       (puni-kill-active-region)
     (and
      (puni-soft-delete-by-move (lambda ()
-                                 (if (bolp) (forward-line -1) (beginning-of-line)))
+                                 (if (bolp)
+                                     (forward-line -1) (beginning-of-line)))
                                'strict-sexp 'beyond 'kill)
      (when (not (puni--line-empty-p))
        (save-excursion (indent-according-to-mode))))))
