@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: 'Compile'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs_version:
+          - 26.1
+          - 26.2
+          - 26.3
+          - 27.1
+          - 27.2
+          - snapshot
+    steps:
+      - name: '[dep] Install Emacs'
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+      - name: '[puni] Checkout Puni repo'
+        uses: actions/checkout@v2
+      - name: '[puni] Byte compilation tests'
+        run: make compile
+
+  check-style:
+    name: 'Code style check'
+    runs-on: ubuntu-latest
+    steps:
+      - name: '[dep] Install Emacs'
+        uses: purcell/setup-emacs@master
+        with:
+          version: 27.1
+      - name: '[puni] Checkout Puni repo'
+        uses: actions/checkout@v2
+      - name: '[puni] Style check'
+        run: make style
