@@ -147,6 +147,41 @@ than BOUND."
       (let ((to (point)))
         (unless (eq from to) to)))))
 
+;;;;; Basic move: char
+
+(defun puni--skip-chars-forward (string &optional bound)
+  "Go forawrd accross chars in STRING.
+When BOUND is non-nil, stop before BOUND.
+
+This is the same as `skip-chars-forward', except that:
+
+- It signals an error is BOUND is before point at the first place.
+- If it fails, return nil.
+- If sucess, return the point after move."
+  (puni--error-if-before-point bound)
+  (pcase (skip-chars-forward string bound)
+    (0 nil)
+    (_ (point))))
+
+(defun puni--skip-chars-backward (string &optional bound)
+  "Backward version of `puni--skip-chars-forward'."
+  (puni--error-if-after-point bound)
+  (pcase (skip-chars-backward string bound)
+    (0 nil)
+    (_ (point))))
+
+(defun puni--forward-same-char (&optional bound)
+  "Go forward consecutive same characters.
+It returns the point after move.  If BOUND is non-nil, stop
+before BOUND.  If it fails, return nil."
+  (unless (eobp)
+    (puni--skip-chars-forward (char-to-string (char-after)) bound)))
+
+(defun puni--backward-same-char (&optional bound)
+  "Backward version of `puni--forward-same-char'."
+  (unless (bobp)
+    (puni--skip-chars-backward (char-to-string (char-before)) bound)))
+
 ;;;;; Basic move: syntax
 
 (defun puni--forward-syntax (syntax &optional bound)
@@ -157,7 +192,7 @@ stop before BOUND.
 This is the same as `skip-syntax-forward', except that:
 
 - It signals an error is BOUND is before point at the first place.
-- If it fails, return 0.
+- If it fails, return nil.
 - If sucess, return the point after move."
   (puni--error-if-before-point bound)
   (pcase (skip-syntax-forward syntax bound)
@@ -366,18 +401,39 @@ Return the point if success."
 ;; In this section, we build necessary components for the final
 ;; `puni--strict-forward/backward-sexp' functions.
 
+(defun puni--forward-same-char-and-syntax (&optional bound)
+  "Move forward consecutive same chars with same syntax.
+When BOUND is non-nil, stop before BOUND.
+
+Return the point if success, otherwise return nil."
+  (let* ((char-bound (save-excursion
+                       (puni--forward-same-char bound)))
+         (syntax-bound (save-excursion
+                         (puni--forward-same-syntax bound))))
+    (when (and char-bound syntax-bound)
+      (goto-char (min char-bound syntax-bound)))))
+
+(defun puni--backward-same-char-and-syntax (&optional bound)
+  "Backward version of `puni--forward-same-char-and-syntax'."
+  (let* ((char-bound (save-excursion
+                       (puni--backward-same-char bound)))
+         (syntax-bound (save-excursion
+                         (puni--backward-same-syntax bound))))
+    (when (and char-bound syntax-bound)
+      (goto-char (max char-bound syntax-bound)))))
+
 (defun puni--forward-syntax-block ()
   "Move forward a symbol, string or chars with the same syntax.
 Return the point if success, otherwise return nil."
   (or (puni--forward-symbol)
       (puni--forward-string)
-      (puni--forward-same-syntax)))
+      (puni--forward-same-char-and-syntax)))
 
 (defun puni--backward-syntax-block ()
   "Backward version of `puni--forward-syntax-block'."
   (or (puni--backward-symbol)
       (puni--backward-string)
-      (puni--backward-same-syntax)))
+      (puni--backward-same-char-and-syntax)))
 
 (defun puni--primitive-forward-sexp (&optional n)
   "A wrapper around `forward-sexp'.
