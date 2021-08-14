@@ -14,7 +14,7 @@ Puni contains commands for soft deletion, which means deleting while keeping
 parentheses (or other delimiters, like html tags) balanced. Let's see them in
 action:
 
-Kill a line softly in Lisp code (`emacs-lisp-mode`):
+Kill lines softly in Lisp code (`emacs-lisp-mode`):
 
 ![kill-line-in-lisp-mode](./img/lisp.gif)
 
@@ -230,9 +230,9 @@ We have some "navigate by sexp" commands:
 | `puni-beginning-of-sexp` | `C-M-a`            |
 | `puni-end-of-sexp`       | `C-M-e`            |
 
-These are similar to their built-in versions. But these are based on Puni's
-"strict forward/backward sexp" functions, so the behavior is more predictable,
-and won't take you out of current sexp.
+These are similar to their built-in versions, but based on Puni's "strict
+forward/backward sexp" functions, so the behavior is more predictable, and
+won't take you out of current sexp.
 
 When you do want to get out of/into a sexp, we have:
 
@@ -260,8 +260,8 @@ The API for this is `puni-soft-delete-by-move`. Let's see the definition of
       (puni-kill-active-region)
     (and
      (puni-soft-delete-by-move
-       ;; FUNC: `puni-soft-delete-by-move` softly deletes the region between
-       ;; cursor and the position after calling FUNC.
+       ;; FUNC: `puni-soft-delete-by-move` softly deletes the region from
+       ;; cursor to the position after calling FUNC.
        (lambda ()
          (if (eolp) (forward-line) (end-of-line)))
        ;; STRICT-SEXP: More on this later.
@@ -331,7 +331,7 @@ The `within` style is basically the same, but it stops before the line end:
 ;; (nothing happened, as the line end is inside the next sexp)
 ```
 
-We can combine `within` style with fail action being `delete-one`, so when
+We can combine `within` style with `fail-action` being `delete-one`, so when
 there's no complete sexp before the line end to delete, it deletes one sexp
 forward:
 
@@ -463,15 +463,15 @@ in a generic way. If you have any idea about this, please tell me!
 For now, you can use these for auto pairing:
 
 - `electric-pair-mode`: It's a built-in minor mode that automatically close
-  your opening brackets. The default values of its user options are carefully
-  chosen to keep brackets balanced when you insert things. I use this package
-  daily, and I love it.
+  your opening brackets. Its default behavior is carefully designed to keep
+  brackets balanced when you insert things. I use this package daily, and I
+  love it.
 
   It's disadvantage is that only single-character brackets (like `(`/`)`,
   `[`/`]`, `"`) are supported. You can't auto close delimiters like `if ... end
   if` or `<p> ... </p>`.
 
-- Some major/minor modes comes with their own tools for auto-pairing. For
+- Some major/minor modes come with their own tools for auto-pairing. For
   example, `web-mode` can auto close html tags, `tex-mode` has
   `latex-close-block` command.
 
@@ -492,7 +492,7 @@ less thinking, and feels more intuitive this way.
 "pillowy".
 
 If you are surrounded by punipuni things, you feel safe and relieved. That's my
-feeling when using Puni: I don't need to worry about messing up parentheses
+feeling when using Puni: never need to worry about messing up parentheses
 anymore.
 
 ## Donation
