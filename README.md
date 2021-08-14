@@ -409,6 +409,9 @@ It has 2 key arguments: `style` decides which part to delete, and `fail-action`
 decides what to do if nothing can be deleted. By combining these 2 arguments,
 you can create soft deletion commands that fits your need and taste.
 
+Be sure to use the implementation of built-in commands as a reference when
+defining your own commands!
+
 ## Caveats
 
 Let's talk about things that Puni can't do, or doesn't do well.
