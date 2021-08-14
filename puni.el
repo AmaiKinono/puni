@@ -50,6 +50,7 @@
 
 (require 'cl-lib)
 (require 'rx)
+(require 'subr-x)
 
 (defgroup puni nil
   "Customizable soft deletion."
@@ -447,8 +448,9 @@ state."
               (save-excursion
                 (goto-char beg)
                 (and (puni--begin-of-single-line-comment-p)
-                     (looking-at (rx (* (literal (char-to-string
-                                                  (char-after))))))
+                     (looking-at (concat (regexp-quote (char-to-string
+                                                        (char-after)))
+                                         "*"))
                      (> (match-end 0) (pcase direction
                                         ('forward pt)
                                         ('backward (1- pt))
@@ -1123,7 +1125,8 @@ feel."
           (setq done t))))
     (when-let ((syntax-after (puni--syntax-char-after (1- (point)))))
       (unless (memq syntax-after '(?\( ?\)))
-        (when (looking-at (rx (* (literal (char-to-string (char-before))))))
+        (when (looking-at (concat (regexp-quote (char-to-string (char-before)))
+                                  "*"))
           (goto-char (match-end 0)))))))
 
 ;;;###autoload
@@ -1151,7 +1154,9 @@ feel."
           (setq done t))))
     (when-let ((syntax-after (puni--syntax-char-after)))
       (unless (memq syntax-after '(?\( ?\)))
-        (when (looking-back (rx (* (literal (char-to-string (char-after)))))
+        (when (looking-back (concat (regexp-quote (char-to-string
+                                                   (char-after)))
+                                    "*")
                             (line-beginning-position))
           (goto-char (match-beginning 0)))))))
 
