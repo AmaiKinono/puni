@@ -1161,6 +1161,7 @@ feel."
     (define-key map (kbd "C-k") 'puni-kill-line)
     (define-key map (kbd "C-S-k") 'puni-backward-kill-line)
     (define-key map (kbd "C-c DEL") 'puni-force-delete)
+    (define-key map (kbd "C-w") 'puni-kill-active-region)
     (define-key map (kbd "C-M-f") 'puni-forward-sexp)
     (define-key map (kbd "C-M-b") 'puni-backward-sexp)
     (define-key map (kbd "C-M-a") 'puni-beginning-of-sexp)
