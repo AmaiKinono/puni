@@ -836,12 +836,9 @@ symbol delimiters differently."
       (cl-return t))
     (save-excursion
       (let ((beg (min pt1 pt2))
-            (end (max pt1 pt2))
-            bound-before-end
-            bound-after-end)
+            (end (max pt1 pt2)))
         (goto-char beg)
         (while (< (point) end)
-          (setq bound-before-end (point))
           (if (or (unless strict (puni--forward-symbol end))
                   (puni--forward-blanks end)
                   (puni--forward-string)
@@ -849,38 +846,21 @@ symbol delimiters differently."
               (when (eq (point) end)
                 (cl-return t))
             (cl-return nil)))
-        ;; Now we have (> (point) end).  This means END is in a sexp.  If the
-        ;; part between BOUND-BEFORE-END and END is balanced, we can still
-        ;; delete it.  Notice the (= (point) end) situation causes return in
-        ;; the above code, so we don't need to handle it.
-        (setq bound-after-end (point))
+        ;; Now we have (> (point) end).  This means the depth at END >= the
+        ;; depth at BEG.  If we could also prove that the depth at BEG >= the
+        ;; depth at END, we know the region between BEG and END is balanced.
+        ;; We do that by go backward from END to BEG.
         (goto-char end)
-        ;; This means we reached BOUND-AFTER-END with one jump, so
-        ;; BOUND-BEFORE-END may not be the beginning of sexp before END.
-        (when (eq bound-before-end beg)
-          (setq bound-before-end (save-excursion
-                                   (goto-char bound-after-end)
-                                   (puni-strict-backward-sexp))))
-        ;; This is basically the same logic as in
-        ;; `puni--strict-primitive-forward-sexp'.
-        (cond
-         ((< bound-before-end beg)
-          (when (and (not (puni--inside-delim-p
-                           beg bound-before-end bound-after-end
-                           'forward))
-                     (progn (goto-char beg)
-                            (>= (puni--forward-syntax-block) end)))
-            (cl-return t)))
-         ((and (>= bound-before-end beg) (< bound-before-end end))
-          (when (eq (puni-strict-backward-sexp) bound-before-end)
-            (cl-return t)))
-         ;; (> bound-before-end end)
-         (t
-          (when (eq (progn (goto-char beg)
-                           (puni--forward-blanks end)
-                           (puni--forward-same-syntax end))
-                    end)
-            (cl-return t))))))))
+        (while (> (point) beg)
+          ;; We don't need to go back a string or sexp, becuase if END is after
+          ;; one (including the situations where there are some blanks between
+          ;; END the end of the string/sexp), We've already returned while
+          ;; going forward.
+          (unless (or (unless strict (puni--backward-symbol beg))
+                      (puni--backward-blanks beg))
+            (cl-return nil)))
+        ;; If we've reached here, we have (<= (point) beg)
+        (cl-return t)))))
 
 ;;;;; API: Deletion
 
