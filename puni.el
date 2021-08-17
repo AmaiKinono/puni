@@ -435,7 +435,7 @@ Return the point if success, otherwise return nil."
       (puni--backward-string)
       (puni--backward-same-char-and-syntax)))
 
-(defun puni--primitive-forward-sexp (&optional n)
+(defun puni--forward-sexp-wrapper (&optional n)
   "A wrapper around `forward-sexp'.
 Move forward N sexp, return the point if success, otherwise
 return nil.
@@ -449,6 +449,35 @@ while the one from `web-mode' just does nothing and returns nil."
             (to (progn (forward-sexp n) (point))))
         (unless (eq from to) to))
     (error nil)))
+
+(defun puni--primitive-forward-sexp ()
+  "Move forward a sexp by `forward-sexp'.
+This fixes some of its behaviors, see the implementation."
+  ;; In Lisp mode:
+  ;;
+  ;;     symbol|,__
+  ;;
+  ;; "_" means space, and its end is the end of buffer.  Try
+  ;; `forward/backward-sexp'.
+  (if (puni--forward-sexp-wrapper)
+      (progn (puni--backward-syntax " ")
+             (point))
+    ;; In lisp mode, it's common to have this when editing:
+    ;;
+    ;;     (foo |')
+    ;;
+    ;; `forward-sexp' can't parse forward since there's no expression after the
+    ;; "'", but we should be able to delete it.
+    (when (eq (puni--syntax-char-after) ?')
+      (forward-char) (point))))
+
+(defun puni--primitive-backward-sexp ()
+  "Backward version of `puni--primitive-forward-sexp'."
+  (if (puni--forward-sexp-wrapper -1)
+      (progn (puni--forward-syntax " ")
+             (point))
+    (when (eq (puni--syntax-char-after (1- (point))) ?')
+      (backward-char) (point))))
 
 ;; NOTE: The real challenge is what to do when the delimiter is not the
 ;; symbol/char at point, but something like "bound of symbol" or "newline"?
@@ -556,7 +585,7 @@ Please report relevant part of the buffer, with the location of these points."
     (save-excursion
       (setq beg (point))
       (setq end (puni--primitive-forward-sexp))
-      (setq beg-of-maybe-another-sexp (puni--primitive-forward-sexp -1))
+      (setq beg-of-maybe-another-sexp (puni--primitive-backward-sexp))
       (setq end-of-maybe-another-sexp (puni--primitive-forward-sexp)))
     ;; Make sure we can actually go forward a sexp.  This also incidentally
     ;; checks if the point is at the end of buffer.  Notice that
@@ -626,9 +655,9 @@ Please report relevant part of the buffer, with the location of these points."
                   (setq beg (save-excursion (puni--backward-syntax-block)))))))
     (save-excursion
       (setq end (point))
-      (setq beg (puni--primitive-forward-sexp -1))
+      (setq beg (puni--primitive-backward-sexp))
       (setq end-of-maybe-another-sexp (puni--primitive-forward-sexp))
-      (setq beg-of-maybe-another-sexp (puni--primitive-forward-sexp -1)))
+      (setq beg-of-maybe-another-sexp (puni--primitive-backward-sexp)))
     (when (and beg end beg-of-maybe-another-sexp end-of-maybe-another-sexp)
       (cond
        ((> end-of-maybe-another-sexp end)
