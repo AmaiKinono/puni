@@ -255,8 +255,7 @@ Here are 2 configuration examples using `use-package`:
   :init
   ;; The autoloads of Puni are set up so you can enable `puni-mode` or
   ;; `puni-global-mode` before `puni` is actually loaded. Only after you press
-  ;; any key that calls Puni commands, it's loaded. Besides, the
-  ;; `puni-soft-delete-by-move` API can also be used before Puni is loaded.
+  ;; any key that calls Puni commands, it's loaded.
   (puni-global-mode)
   (add-hook 'term-mode-hook #'puni-disable-puni-mode))
 
@@ -291,7 +290,8 @@ You can also call `puni-kill-active-region` directly. It's bind to `C-w`.
 `puni-force-delete` (`C-c DEL`) is for deleting the char before point, or the
 active region, no matter they are balanced or not. This is handy if you break
 the syntax structure by accident, and Puni doesn't allow you to delete
-something.
+something. I personally bind it to `C-h` as I use it often, and `C-h` is the
+shortcut in the terminal to kill a char backward.
 
 ### Navigation commands
 
@@ -353,7 +353,7 @@ The API for this is `puni-soft-delete-by-move`. Let's see the definition of
 
 ### `strict-sexp`
 
-If `strict-sexp` is non-nil, symbols are treated as sexps, even if they are
+If `strict-sexp` is nil, symbols are treated as sexps, even if they are
 actually delimiters. For example, in `ruby-mode`:
 
 ```ruby
@@ -484,7 +484,8 @@ decides what to do if nothing can be deleted. By combining these 2 arguments,
 you can create soft deletion commands that fits your need and taste.
 
 Be sure to use the implementation of built-in commands as a reference when
-defining your own commands!
+defining your own commands! Also, read the
+[wiki](https://github.com/AmaiKinono/puni/wiki) for inspirations.
 
 ## Caveats
 
@@ -556,8 +557,8 @@ For now, you can use these for auto pairing:
 
 ### Lack of fancy sexp-manipulating commands
 
-Paredit and smartparens have fancy sexp-manipulating commands like slurp, barf,
-split, splice, convolute, etc., while Puni doesn't have them.
+Paredit and smartparens have fancy sexp-manipulating commands, while Puni
+doesn't have them, as mentioned above.
 
 I found the combination of sexp-browsing commands, soft-deletion commands, and
 mark/kill/yank could do almost any fancy sexp manipulations. It also requires
