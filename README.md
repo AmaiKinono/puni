@@ -111,6 +111,11 @@ While you can define a `my-kill-line` that's not so greedy:
 It's very easy to define commands like this. I'll show you how to do this
 later.
 
+Puni also offers other useful APIs, and allows you to build things other than
+soft deletion commands. For example,
+[this](https://github.com/AmaiKinono/puni/wiki/The-Puni-version-of-expand-region)
+is an `expand-region` built on Puni.
+
 ### Out of box support for many major modes
 
 That's still not the whole story. Let me reveal the ultimate truth of Puni,
@@ -475,6 +480,16 @@ case), with `style` being `within`:
 It has 2 key arguments: `style` decides which part to delete, and `fail-action`
 decides what to do if nothing can be deleted. By combining these 2 arguments,
 you can create soft deletion commands that fits your need and taste.
+
+If this is not enough, read the "APIs" section in the source code. Puni further
+provides:
+
+- Sexp navigating functions: go forward/backward, or goto the beginning/end of
+  sexp.
+- `puni-up-list`: Move out of current sexp.
+- `puni-region-balance-p`: Test if region is balanced.
+- `puni-soft-delete`: Similar to `puni-soft-delete-by-move` but you need to
+  tell it delete from which point to which point directly.
 
 Be sure to use the implementation of built-in commands as a reference when
 defining your own commands! Also, read the

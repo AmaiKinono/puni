@@ -822,6 +822,50 @@ move one comment line a time."
     (let ((to (point)))
       (unless (eq from to) to))))
 
+(defun puni-strict-beginning-of-sexp ()
+  "Go to the beginning of the sexp around point.
+This means after the opening delimiter.
+
+Return the point if it's moved."
+  (let (moved)
+    (while (puni-strict-backward-sexp)
+      (setq moved t))
+    (when moved (point))))
+
+(defun puni-strict-end-of-sexp ()
+  "Backward version of `puni-strict-beginning-of-sexp'."
+  (let (moved)
+    (while (puni-strict-forward-sexp)
+      (setq moved t))
+    (when moved (point))))
+
+(defun puni-up-list (&optional backward)
+  "Move forward out of the sexp around point.
+When BACKWARD is non-nil, move backward.
+
+Return the point if the move succeeded."
+  (let ((from (point))
+        (beg (save-excursion (or (puni-strict-beginning-of-sexp)
+                                 (point))))
+        (backward-char-with-spaces
+         (lambda ()
+           (puni--backward-syntax " ")
+           (condition-case _
+               (progn (forward-char -1) (point))
+             (error nil))))
+        end done err)
+    (save-excursion
+      (while (and (not done) (not err))
+        (goto-char beg)
+        (setq beg (funcall backward-char-with-spaces))
+        (if beg
+            (progn
+              (setq end (puni-strict-forward-sexp))
+              (when (and end (> end from)) (setq done t)))
+          (setq err t))))
+    (when (and done (not err))
+      (goto-char (if backward beg end)))))
+
 ;;;;; API: Balance test
 
 (defun puni-region-balance-p (pt1 pt2 &optional strict)
@@ -1199,9 +1243,9 @@ begin so we can pop back to it."
   (interactive)
   (unless (bobp)
     (let ((from (point)))
-      (while (puni-strict-backward-sexp))
-      (when (bobp)
-        (push-mark from)))))
+      (when (puni-strict-beginning-of-sexp)
+        (when (bobp)
+          (push-mark from))))))
 
 ;;;###autoload
 (defun puni-end-of-sexp ()
@@ -1211,9 +1255,9 @@ so we can pop back to it."
   (interactive)
   (unless (eobp)
     (let ((from (point)))
-      (while (puni-strict-forward-sexp))
-      (when (eobp)
-        (push-mark from)))))
+      (when (puni-strict-forward-sexp)
+        (when (eobp)
+          (push-mark from))))))
 
 ;;;;; Punctuation
 
