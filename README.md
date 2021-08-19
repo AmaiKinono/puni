@@ -321,34 +321,27 @@ docstrings for detail.
 
 ## Define your own commands
 
-The API for this is `puni-soft-delete-by-move`. Let's see the definition of
-`puni-kill-line`. Notice the comments about arguments of
+The API for this is `puni-soft-delete-by-move`. Let's see a simplified
+definition of `puni-kill-line`. Notice the comments about arguments of
 `puni-soft-delete-by-move`:
 
 ``` elisp
 (defun puni-kill-line ()
   "Kill a line forward while keeping expressions balanced."
   (interactive)
-  ;; Kill active region if there is one.
-  (if (use-region-p)
-      (puni-kill-active-region)
-    (and
-     (puni-soft-delete-by-move
-       ;; FUNC: `puni-soft-delete-by-move` softly deletes the region from
-       ;; cursor to the position after calling FUNC.
-       (lambda ()
-         (if (eolp) (forward-line) (end-of-line)))
-       ;; STRICT-SEXP: More on this later.
-       'strict-sexp
-       ;; STYLE: More on this later.
-       'beyond
-       ;; KILL: Save deleted region to kill-ring if non-nil.
-       'kill
-       ;; FAIL-ACTION argument is not used here.
-       )
-     ;; Reindent after kill
-     (when (not (puni--line-empty-p))
-       (save-excursion (indent-according-to-mode))))))
+  (puni-soft-delete-by-move
+   ;; FUNC: `puni-soft-delete-by-move` softly deletes the region from
+   ;; cursor to the position after calling FUNC.
+   (lambda ()
+     (if (eolp) (forward-char) (end-of-line)))
+   ;; STRICT-SEXP: More on this later.
+   'strict-sexp
+   ;; STYLE: More on this later.
+   'beyond
+   ;; KILL: Save deleted region to kill-ring if non-nil.
+   'kill
+   ;; FAIL-ACTION argument is not used here.
+   ))
 ```
 
 ### `strict-sexp`

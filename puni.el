@@ -1031,73 +1031,120 @@ Continue? "))
 ;;;;; Char
 
 ;;;###autoload
-(defun puni-backward-delete-char ()
-  "Delete char backward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-delete-active-region)
-    (puni-soft-delete-by-move #'backward-char nil nil nil
-                              'jump-and-reverse-delete)))
+(defun puni-backward-delete-char (&optional n)
+  "Delete char backward while keeping expressions balanced.
+With prefix argument N, kill that many chars.  Negative argument
+means kill chars forward.
+
+This respects the variable `delete-active-region'."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (and (use-region-p)
+           delete-active-region
+           (eq n 1))
+      (if (eq delete-active-region 'kill)
+          (puni-kill-active-region)
+        (puni-delete-active-region))
+    (if (< n 0) (puni-forward-delete-char (- n))
+      (dotimes (_ n)
+        (puni-soft-delete-by-move #'backward-char nil nil nil
+                                  'jump-and-reverse-delete)))))
 
 ;;;###autoload
-(defun puni-forward-delete-char ()
-  "Delete char forward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-delete-active-region)
-    (puni-soft-delete-by-move #'forward-char nil nil nil
-                              'jump-and-reverse-delete)))
+(defun puni-forward-delete-char (&optional n)
+  "Delete char forward while keeping expressions balanced.
+With prefix argument N, kill that many chars.  Negative argument
+means kill chars backward.
+
+This respects the variable `delete-active-region'."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (and (use-region-p)
+           delete-active-region
+           (eq n 1))
+      (if (eq delete-active-region 'kill)
+          (puni-kill-active-region)
+        (puni-delete-active-region))
+    (if (< n 0) (puni-backward-delete-char (- n))
+      (dotimes (_ n)
+        (puni-soft-delete-by-move #'forward-char nil nil nil
+                                  'jump-and-reverse-delete)))))
 
 ;;;;; Word
 
 ;;;###autoload
-(defun puni-forward-kill-word ()
-  "Kill word forward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-kill-active-region)
-    (puni-soft-delete-by-move #'forward-word nil nil 'kill
-                              'jump-and-reverse-delete)))
+(defun puni-forward-kill-word (&optional n)
+  "Kill word forward while keeping expressions balanced.
+With prefix argument N, kill that many words.  Negative argument
+means kill words backward."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (< n 0)
+      (puni-backward-kill-word (- n))
+    (dotimes (_ n)
+      (puni-soft-delete-by-move #'forward-word nil nil 'kill
+                                'jump-and-reverse-delete))))
 
 ;;;###autoload
-(defun puni-backward-kill-word ()
-  "Kill word backward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-kill-active-region)
-    (puni-soft-delete-by-move #'backward-word nil nil 'kill
-                              'jump-and-reverse-delete)))
+(defun puni-backward-kill-word (&optional n)
+  "Kill word backward while keeping expressions balanced.
+With prefix argument N, kill that many words.  Negative argument
+means kill words forward."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (< n 0)
+      (puni-forward-kill-word (- n))
+    (dotimes (_ n)
+      (puni-soft-delete-by-move #'backward-word nil nil 'kill
+                                'jump-and-reverse-delete))))
 
 ;;;;; Line
 
 ;;;###autoload
-(defun puni-kill-line ()
-  "Kill a line forward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-kill-active-region)
-    (and
-     (puni-soft-delete-by-move (lambda ()
-                                 (if (eolp) (forward-line) (end-of-line)))
-                               'strict-sexp 'beyond 'kill)
-     (when (not (puni--line-empty-p))
-       ;; Sometimes `indent-according-to-mode' causes the point to move, like
-       ;; in `markdown-mode'.
-       (save-excursion (indent-according-to-mode))))))
+(defun puni-kill-line (&optional n)
+  "Kill a line forward while keeping expressions balanced.
+With prefix argument N, kill that many lines.  Negative argument
+means kill lines backward.
+
+This respects the variable `kill-whole-line'."
+  (interactive "p")
+  (let ((n (or n 1))
+        (move (lambda () (if (eolp) (forward-char)
+                           (end-of-line)
+                           (when kill-whole-line (forward-char)))))
+        killed)
+    (if (< n 0)
+        (puni-backward-kill-line (- n))
+      (dotimes (_ n)
+        (and (puni-soft-delete-by-move
+              move 'strict-sexp 'beyond 'kill)
+             (setq killed t)))
+      (when (and killed (not (puni--line-empty-p)))
+        ;; Sometimes `indent-according-to-mode' causes the point to move, like
+        ;; in `markdown-mode'.
+        (save-excursion (indent-according-to-mode))))))
 
 ;;;###autoload
-(defun puni-backward-kill-line ()
-  "Kill a line backward while keeping expressions balanced."
-  (interactive)
-  (if (use-region-p)
-      (puni-kill-active-region)
-    (and
-     (puni-soft-delete-by-move (lambda ()
-                                 (if (bolp)
-                                     (forward-line -1) (beginning-of-line)))
-                               'strict-sexp 'beyond 'kill)
-     (when (not (puni--line-empty-p))
-       (save-excursion (indent-according-to-mode))))))
+(defun puni-backward-kill-line (&optional n)
+  "Kill a line backward while keeping expressions balanced.
+With prefix argument N, kill that many lines.  Negative argument
+means kill lines forward.
+
+This respects the variable `kill-whole-line'."
+  (interactive "p")
+  (let ((n (or n 1))
+        (move (lambda () (if (bolp) (forward-char -1)
+                           (beginning-of-line)
+                           (when kill-whole-line (forward-char -1)))))
+        killed)
+    (if (< n 0)
+        (puni-kill-line (- n))
+      (dotimes (_ n)
+        (and (puni-soft-delete-by-move
+              move 'strict-sexp 'beyond 'kill)
+             (setq killed t)))
+      (when (and killed (not (puni--line-empty-p)))
+        (save-excursion (indent-according-to-mode))))))
 
 ;;;;; Force delete
 
@@ -1117,20 +1164,32 @@ editing."
 ;;;;; Sexp
 
 ;;;###autoload
-(defun puni-forward-sexp ()
+(defun puni-forward-sexp (&optional n)
   "Go forward a sexp.
 This is the same as `puni-strict-forward-sexp', except that it
-jumps forward consecutive single-line comments."
-  (interactive)
-  (puni-strict-forward-sexp 'skip-single-line-comments))
+jumps forward consecutive single-line comments.
+
+With prefix argument N, go forward that many sexps.  Negative
+argument means go backward."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (< n 0) (puni-backward-sexp (- n))
+    (dotimes (_ n)
+      (puni-strict-forward-sexp 'skip-single-line-comments))))
 
 ;;;###autoload
-(defun puni-backward-sexp ()
+(defun puni-backward-sexp (&optional n)
   "Go backward a sexp.
 This is the same as `puni-strict-backward-sexp', except that it
-jumps backward consecutive single-line comments."
-  (interactive)
-  (puni-strict-backward-sexp 'skip-single-line-comments))
+jumps backward consecutive single-line comments.
+
+With prefix argument N, go backward that many sexps.  Negative
+argument means go forward."
+  (interactive "p")
+  (setq n (or n 1))
+  (if (< n 0) (puni-forward-sexp (- n))
+    (dotimes (_ n)
+      (puni-strict-backward-sexp 'skip-single-line-comments))))
 
 ;;;###autoload
 (defun puni-beginning-of-sexp ()
