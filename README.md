@@ -313,7 +313,14 @@ These are similar to their built-in versions, but based on Puni's "strict
 forward/backward sexp" functions, so the behavior is more predictable, and
 won't take you out of current sexp.
 
-When you do want to get out of/into a sexp, we have:
+When you call `puni-beginning-of-sexp`, it will take you to the point after the
+opening delimiter, then before it, then after another one... So consecutively
+calling it will take you all the way across opening delimiters. Same to
+`puni-end-of-sexp`.
+
+While we can go out sexps using `puni-beginning/end-of-sexp`, it's hard to
+implement commands that goes into a sexp. As an alternative, Puni provides
+these commands:
 
 | Command                         | Default keybinding |
 |---------------------------------|--------------------|
@@ -322,7 +329,7 @@ When you do want to get out of/into a sexp, we have:
 
 These commands basically takes you to the next/previous punctuation, but it
 does more than that to give you a "syntactical navigating" feel. See their
-docstrings for detail.
+docstrings for detail. These are also handy in `text-mode`.
 
 ## Define your own commands
 

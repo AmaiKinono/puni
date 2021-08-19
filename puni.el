@@ -1238,26 +1238,40 @@ argument means go forward."
 ;;;###autoload
 (defun puni-beginning-of-sexp ()
   "Go to the beginning of current sexp.
-If it goes to the beginning of the buffer, set a mark at where we
+This means go to the point after the opening delimiter.  If this
+is called from there, then go to the point before the delimiter,
+so consecutive calling this can take you all the way across
+opening delimiters.
+
+If it goes to the beginning of the buffer (likely to happen when
+called by accident in the top scope), set a mark at where we
 begin so we can pop back to it."
   (interactive)
   (unless (bobp)
     (let ((from (point)))
-      (when (puni-strict-beginning-of-sexp)
-        (when (bobp)
-          (push-mark from))))))
+      (or (puni-strict-beginning-of-sexp)
+          (puni-up-list 'backward))
+      (when (bobp)
+        (push-mark from)))))
 
 ;;;###autoload
 (defun puni-end-of-sexp ()
   "Go to the end of current sexp.
-If it goes to the end of the buffer, set a mark at where we begin
-so we can pop back to it."
+This means go to the point before the closing delimiter.  If this
+is called from there, then go to the point after the delimiter,
+so consecutive calling this can take you all the way across
+closing delimiters.
+
+If it goes to the end of the buffer (likely to happen when called
+by accident in the top scope), set a mark at where we begin so we
+can pop back to it."
   (interactive)
   (unless (eobp)
     (let ((from (point)))
-      (when (puni-strict-forward-sexp)
-        (when (eobp)
-          (push-mark from))))))
+      (or (puni-strict-end-of-sexp)
+          (puni-up-list))
+      (when (eobp)
+        (push-mark from)))))
 
 ;;;;; Punctuation
 
