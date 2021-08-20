@@ -157,7 +157,9 @@ This is the same as `skip-chars-forward', except that:
 
 - It signals an error is BOUND is before point at the first place.
 - If it fails, return nil.
-- If sucess, return the point after move."
+- If sucess, return the point after move.
+
+See `skip-chars-forward' for the real meaning of STRING."
   (puni--error-if-before-point bound)
   (pcase (skip-chars-forward string bound)
     (0 nil)
@@ -175,12 +177,16 @@ This is the same as `skip-chars-forward', except that:
 It returns the point after move.  If BOUND is non-nil, stop
 before BOUND.  If it fails, return nil."
   (unless (eobp)
-    (puni--skip-chars-forward (char-to-string (char-after)) bound)))
+    ;; See `skip-chars-forward'.  I've tested that `regexp-quote' works for the
+    ;; situations mentioned there.
+    (puni--skip-chars-forward (regexp-quote (char-to-string (char-after)))
+                              bound)))
 
 (defun puni--backward-same-char (&optional bound)
   "Backward version of `puni--forward-same-char'."
   (unless (bobp)
-    (puni--skip-chars-backward (char-to-string (char-before)) bound)))
+    (puni--skip-chars-backward (regexp-quote (char-to-string (char-before)))
+                               bound)))
 
 ;;;;; Basic move: syntax
 
