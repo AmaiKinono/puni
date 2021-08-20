@@ -231,7 +231,7 @@ syntax (like backslash), but followed by a char with symbol or
 word syntax."
   (let ((point (or point (point))))
     (or (memq (puni--syntax-char-after point) '(?_ ?w))
-        (and (eq (puni--syntax-char-after point) '\\)
+        (and (eq (puni--syntax-char-after point) ?\\)
              (memq (puni--syntax-char-after (1+ point)) '(?_ ?w))))))
 
 (defun puni--symbol-prefix-p (&optional point)
