@@ -1187,20 +1187,23 @@ With prefix argument N, kill that many lines.  Negative argument
 means kill lines backward.
 
 This respects the variable `kill-whole-line'."
-  (interactive "p")
-  (let ((n (or n 1))
-        (move (lambda () (if (eolp) (forward-char)
-                           (end-of-line)
-                           (when kill-whole-line (forward-char)))))
-        killed)
-    (if (< n 0)
+  (interactive "P")
+  (let* ((from (point))
+         to)
+    (if (and n (< n 0))
         (puni-backward-kill-line (- n))
-      (dotimes (_ n)
-        (and (puni-soft-delete-by-move
-              move 'strict-sexp 'beyond 'kill)
-             (setq killed t)))
-      (when (and killed (not (puni--line-empty-p)))
-        (puni-reindent-line)))))
+      (setq to (save-excursion (forward-line (or n 1))
+                               (point)))
+      (unless (or kill-whole-line
+                  ;; This is default behavior of Emacs: When the prefix
+                  ;; argument is specified, always kill whole line.
+                  (not (null n))
+                  ;; This means we started from the end of a line, and the
+                  ;; following newline char should be killed.
+                  (eq to (1+ from)))
+        (setq to (1- to)))
+      (and (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
+           (puni-reindent-line)))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
@@ -1209,20 +1212,27 @@ With prefix argument N, kill that many lines.  Negative argument
 means kill lines forward.
 
 This respects the variable `kill-whole-line'."
-  (interactive "p")
-  (let ((n (or n 1))
-        (move (lambda () (if (bolp) (forward-char -1)
-                           (beginning-of-line)
-                           (when kill-whole-line (forward-char -1)))))
-        killed)
-    (if (< n 0)
+  (interactive "P")
+  (let ((indent-pt (save-excursion (back-to-indentation)
+                                   (point)))
+        (from (point))
+        to)
+    (if (and n (< n 0))
         (puni-kill-line (- n))
-      (dotimes (_ n)
-        (and (puni-soft-delete-by-move
-              move 'strict-sexp 'beyond 'kill)
-             (setq killed t)))
-      (when (and killed (not (puni--line-empty-p)))
-        (puni-reindent-line)))))
+      (unless (eq n 0)
+        (setq to (save-excursion (forward-line (if n (- n) -1))
+                                 (end-of-line)
+                                 (point)))
+        (unless (or kill-whole-line
+                    (not (null n))
+                    (eq to (1- from)))
+          (setq to (1+ to)))
+        (and (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
+             ;; If we are killing from a point inside the indent spaces, to the
+             ;; beginning of line, we don't reindent.
+             (unless (and (null n)
+                          (>= indent-pt from))
+               (puni-reindent-line)))))))
 
 ;;;;; Force delete
 
