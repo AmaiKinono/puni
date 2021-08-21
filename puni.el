@@ -1045,6 +1045,36 @@ the meaning of STRICT-SEXP, STYLE, KILL and FAIL-ACTION."
         (goal (save-excursion (funcall func) (point))))
     (puni-soft-delete pt goal strict-sexp style kill fail-action)))
 
+;;;;; API: misc
+
+(defun puni-reindent-line ()
+  "Reindent current line.
+This calls `indent-line-function' internally.  However, if it
+can't decide the exact column to indent to, and cycle through
+possible indent offsets, this does nothing."
+  ;; `indent-for-tab-command' and some of the functions it calls checks if
+  ;; `this-command' equals to `last-command', and the "cycle through possible
+  ;; offsets" behavior may only be triggered if this is true.
+  (let* ((this-command 'indent-for-tab-command)
+         (last-command 'indent-for-tab-command)
+         (bol (line-beginning-position))
+         (orig-indent-pt (save-excursion (back-to-indentation)
+                                         (point)))
+         (orig-pt (point))
+         (orig-spaces (buffer-substring bol orig-indent-pt))
+         (new-indent-pt (lambda () (progn
+                                     (indent-according-to-mode)
+                                     (save-excursion
+                                       (back-to-indentation)
+                                       (point)))))
+         (1st-indent-pt (funcall new-indent-pt))
+         (2nd-indent-pt (funcall new-indent-pt)))
+    (unless (eq 1st-indent-pt 2nd-indent-pt)
+      (delete-region bol 2nd-indent-pt)
+      (save-excursion (goto-char bol)
+                      (insert orig-spaces))
+      (goto-char orig-pt))))
+
 ;;;; Deletion Commands
 
 ;;;;; Kill/delete active region
@@ -1170,9 +1200,7 @@ This respects the variable `kill-whole-line'."
               move 'strict-sexp 'beyond 'kill)
              (setq killed t)))
       (when (and killed (not (puni--line-empty-p)))
-        ;; Sometimes `indent-according-to-mode' causes the point to move, like
-        ;; in `markdown-mode'.
-        (save-excursion (indent-according-to-mode))))))
+        (puni-reindent-line)))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
@@ -1194,7 +1222,7 @@ This respects the variable `kill-whole-line'."
               move 'strict-sexp 'beyond 'kill)
              (setq killed t)))
       (when (and killed (not (puni--line-empty-p)))
-        (save-excursion (indent-according-to-mode))))))
+        (puni-reindent-line)))))
 
 ;;;;; Force delete
 
