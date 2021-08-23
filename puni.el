@@ -569,13 +569,13 @@ works on these situations."
              (unhandled-branch-handler
               (lambda ()
                 (if puni--debug
-                    (error (format "You've found an unhandled branch in Puni.
+                    (error "You've found an unhandled branch in Puni.
 Direction: forward
 beg: %s, end: %s, another-beg: %s, another-end: %s
-Please report relevant part of the buffer, with the location of these points."
-                                   beg end
-                                   beg-of-maybe-another-sexp
-                                   end-of-maybe-another-sexp))
+Please report relevant part of the buffer, with the location of these points"
+                           beg end
+                           beg-of-maybe-another-sexp
+                           end-of-maybe-another-sexp)
                   (setq end nil))))
              (skipped-part-handler
               (lambda ()
@@ -640,13 +640,13 @@ Please report relevant part of the buffer, with the location of these points."
              (unhandled-branch-handler
               (lambda ()
                 (if puni--debug
-                    (error (format "You've found an unhandled branch in Puni.
+                    (error "You've found an unhandled branch in Puni.
 Direction: backward
 beg: %s, end: %s, another-beg: %s, another-end: %s
-Please report relevant part of the buffer, with the location of these points."
-                                   beg end
-                                   beg-of-maybe-another-sexp
-                                   end-of-maybe-another-sexp))
+Please report relevant part of the buffer, with the location of these points"
+                           beg end
+                           beg-of-maybe-another-sexp
+                           end-of-maybe-another-sexp)
                   (setq beg nil))))
              (skipped-part-handler
               (lambda ()
@@ -690,7 +690,7 @@ nil.
 When the point is not in the construct in the first place, throw
 and error \"Not in a THING\"."
   (when (not (funcall probe))
-    (error (format "Not in a %s" thing)))
+    (error "Not in a %s" thing))
   (let ((to (save-excursion (puni--strict-primitive-forward-sexp)))
         pos)
     (when to
@@ -716,7 +716,7 @@ and error \"Not in a THING\"."
 (defun puni--strict-primitive-backward-sexp-in-thing (probe thing)
   "Backward version of `puni--strict-primitive-forward-sexp-in-thing'."
   (when (not (funcall probe))
-    (error (format "Not in a %s" thing)))
+    (error "Not in a %s" thing))
   (let ((to (save-excursion (puni--strict-primitive-backward-sexp)))
         pos)
     (when to
