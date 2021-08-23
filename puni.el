@@ -1197,7 +1197,7 @@ This respects the variable `kill-whole-line'."
       (unless (or kill-whole-line
                   ;; This is default behavior of Emacs: When the prefix
                   ;; argument is specified, always kill whole line.
-                  (not (null n))
+                  n
                   ;; This means we started from the end of a line, and the
                   ;; following newline char should be killed.
                   (eq to (1+ from)))
@@ -1224,7 +1224,7 @@ This respects the variable `kill-whole-line'."
                                  (end-of-line)
                                  (point)))
         (unless (or kill-whole-line
-                    (not (null n))
+                    n
                     (eq to (1- from)))
           (setq to (1+ to)))
         (and (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
