@@ -896,7 +896,8 @@ symbol delimiters differently."
       (cl-return t))
     (save-excursion
       (let ((beg (min pt1 pt2))
-            (end (max pt1 pt2)))
+            (end (max pt1 pt2))
+            (end-of-sexp))
         (goto-char beg)
         (while (< (point) end)
           (if (or (unless strict (puni--forward-symbol end))
@@ -906,21 +907,24 @@ symbol delimiters differently."
               (when (eq (point) end)
                 (cl-return t))
             (cl-return nil)))
-        ;; Now we have (> (point) end).  This means the depth at END >= the
-        ;; depth at BEG.  If we could also prove that the depth at BEG >= the
-        ;; depth at END, we know the region between BEG and END is balanced.
-        ;; We do that by go backward from END to BEG.
+        ;; Now we have (> (point) end).  The point jumps over END while moving,
+        ;; this means the depth at END >= the depth at BEG.  If we could also
+        ;; prove that the depth at BEG >= the depth at END, we know the region
+        ;; between BEG and END is balanced.  Notice that BEG and (point) have
+        ;; the same depth, so we do this by trying to go from END to (point).
+        (setq end-of-sexp (point))
         (goto-char end)
-        (while (> (point) beg)
+        (while (< (point) end-of-sexp)
           ;; We don't need to go back a string or sexp, becuase if END is after
           ;; one (including the situations where there are some blanks between
           ;; END the end of the string/sexp), We've already returned while
           ;; going forward.
-          (unless (or (unless strict (puni--backward-symbol beg))
-                      (puni--backward-blanks beg))
-            (cl-return nil)))
-        ;; If we've reached here, we have (<= (point) beg)
-        (cl-return t)))))
+          (if (or (unless strict (puni--forward-symbol end-of-sexp))
+                  (puni--forward-blanks end-of-sexp)
+                  (puni-strict-forward-sexp))
+              (when (eq (point) end-of-sexp)
+                (cl-return t))
+            (cl-return nil)))))))
 
 ;;;;; API: Deletion
 
