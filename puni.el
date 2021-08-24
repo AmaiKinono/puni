@@ -683,7 +683,10 @@ Please report relevant part of the buffer, with the location of these points"
          ((> end beg-of-maybe-another-sexp beg)
           (funcall unhandled-branch-handler))
          ((<= beg-of-maybe-another-sexp end)
-          (funcall inside-sexp-handler))))
+          (unless (save-excursion
+                    (goto-char beg)
+                    (puni--forward-syntax "'" end))
+            (funcall inside-sexp-handler)))))
        ((eq end-of-maybe-another-sexp end) nil)
        (t
         (funcall skipped-part-handler)))
