@@ -622,8 +622,18 @@ Please report relevant part of the buffer, with the location of these points"
          ;; or
          ;;
          ;;     <p>something|</p>
+         ;;
+         ;; We should also consider the situation where BEG is after a
+         ;; expression prefix:
+         ;;
+         ;;     '|()
+         ;;
+         ;; For this we don't need to anything.
          ((>= end-of-maybe-another-sexp end)
-          (funcall inside-sexp-handler))))
+          (unless (save-excursion
+                    (goto-char beg-of-maybe-another-sexp)
+                    (puni--forward-syntax "'" beg))
+            (funcall inside-sexp-handler)))))
        ;; This means there's a sexp between BEG and END.  That's perfect, we
        ;; don't need to do anything more.
        ((eq beg-of-maybe-another-sexp beg) nil)
