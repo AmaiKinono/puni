@@ -1488,7 +1488,7 @@ This respects the variable `kill-whole-line'."
         (puni-kill-line (- n))
       (unless (eq n 0)
         (setq to (save-excursion (forward-line (if n (- n) -1))
-                                 (end-of-line)
+                                 (beginning-of-line)
                                  (point)))
         (unless (or kill-whole-line
                     n
