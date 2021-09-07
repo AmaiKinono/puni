@@ -11,6 +11,7 @@
 - [What is it?](#what-is-it)
   * [A set of soft deletion commands](#a-set-of-soft-deletion-commands)
   * [A factory of soft deletion commands](#a-factory-of-soft-deletion-commands)
+  * [Sexp navigating & manipulating commands](#sexp-navigating--manipulating-commands)
   * [Out of box support for many major modes](#out-of-box-support-for-many-major-modes)
 - [Comparison with other packages](#comparison-with-other-packages)
   * [ParEdit & Lispy](#paredit--lispy)
@@ -19,7 +20,14 @@
 - [Commands](#commands)
   * [Deletion commands](#deletion-commands)
   * [Navigation commands](#navigation-commands)
-- [Define your own commands](#define-your-own-commands)
+  * [Marking commands](#marking-commands)
+  * [Sexp manipulating commands.](#sexp-manipulating-commands)
+    + [`puni-squeeze`](#puni-squeeze)
+    + [slurp & barf](#slurp--barf)
+    + [`puni-raise`](#puni-raise)
+    + [`puni-convolute`](#puni-convolute)
+    + [Other commands](#other-commands)
+- [Define your own soft deletion commands](#define-your-own-soft-deletion-commands)
   * [`strict-sexp`](#strict-sexp)
   * [`style`](#style)
   * [`fail-action`](#fail-action)
@@ -27,7 +35,6 @@
 - [Caveats](#caveats)
   * [Doesn't work well in some major modes](#doesnt-work-well-in-some-major-modes)
   * [Lack of auto pairing](#lack-of-auto-pairing)
-  * [Lack of fancy sexp-manipulating commands](#lack-of-fancy-sexp-manipulating-commands)
 - [What does "Puni" means anyway?](#what-does-puni-means-anyway)
 - [Contributing](#contributing)
 - [Donation](#donation)
@@ -72,7 +79,7 @@ For example, the default `puni-backward-kill-word` behaves like:
 
 ```elisp
 (foo bar)|
-;; call `puni-backward-kill-word`
+;; call `puni-backward-kill-word'
 (foo |)
 ```
 
@@ -81,7 +88,7 @@ For example, the default `puni-backward-kill-word` behaves like:
 
 ```elisp
 (foo bar)|
-;; call `my-backward-kill-word`
+;; call `my-backward-kill-word'
 (foo |bar)
 ```
 
@@ -90,7 +97,7 @@ The default `puni-kill-line` behaves like:
 ```elisp
 | foo (bar
        baz)
-;; call `puni-kill-line`
+;; call `puni-kill-line'
 |
 ;; (nothing left)
 ```
@@ -100,10 +107,10 @@ While you can define a `my-kill-line` that's not so greedy:
 ```elisp
 | foo (bar
        baz)
-;; call `my-kill-line`
+;; call `my-kill-line'
 | (bar
        baz)
-;; call `my-kill-line` again
+;; call `my-kill-line' again
 |
 ;; (nothing left)
 ```
@@ -111,10 +118,17 @@ While you can define a `my-kill-line` that's not so greedy:
 It's very easy to define commands like this. I'll show you how to do this
 later.
 
-Puni also offers other useful APIs, and allows you to build things other than
-soft deletion commands. For example,
-[this](https://github.com/AmaiKinono/puni/wiki/The-Puni-version-of-expand-region)
-is an `expand-region` built on Puni.
+### Sexp navigating & manipulating commands
+
+As Puni understands the "balanced expression" concept, it offeres you commands
+to move by sexps, and manipulating sexps. Think about ParEdit, but works for
+Lisp and other languages.
+
+Here's an example of slurping & barfing in HTML (in `web-mode`):
+
+![slurp-and-barf-in-web-mode](./img/slurp-barf.gif)
+
+Notice the ending delimiter is blinked as a visual cue.
 
 ### Out of box support for many major modes
 
@@ -132,9 +146,9 @@ this position. Try this in some Lisp code:
 
 ```elisp
 (foo |bar)
-;; call `forward-sexp`
+;; call `forward-sexp'
 (foo bar|)
-;; call `forward-sexp`
+;; call `forward-sexp'
 (foo bar|) ;; (Signals an error)
 ```
 
@@ -161,8 +175,8 @@ Puni fixes the behavior of these `forward-sexp-functions` in a generic way, by:
 So we get `puni-strict-forward-sexp` and `puni-strict-backward-sexp`. These are
 "strict" versions of the `forward-sexp` fucntion available in current major
 mode, which means they move forward one sexp at a time, and stops at the
-boundary. This is the "ideal" `forward-sexp` function, and forms the basis of
-all our soft deletion commands.
+boundary. This is the "ideal" `forward-sexp` function, and is the basis of all
+the commands offered by Puni.
 
 By taking this appraoch, Puni supports many major modes out of the box.
 
@@ -173,29 +187,43 @@ And that really is the whole story ;)
 ### ParEdit & Lispy
 
 [ParEdit](https://www.emacswiki.org/emacs/ParEdit) is a minor mode for
-structured editing of Lisp code. [Lispy](https://github.com/abo-abo/lispy) is
-another one, with shorter (mostly single-key, without modifier) keybindings.
+structured editing of Lisp code. It implements soft deletion, and sexp
+manipulating commands, as Puni does.
 
-These are killers in Lisp. They come with many commands that manipulates the
-syntax tree, like raise/slurp/barf/split/splice/convolute... These are some
-weird jargons, but skilled users could use them to edit Lisp in the speed of
-mind.
+Compared to ParEdit, Puni's pros:
 
-Puni doesn't have these fancy commands, as it only focuses on soft deleting
-things. The advantages of Puni over them are:
+- Supports many major modes, not only Lisp.
+- An API for defining your own soft deletion commands.
 
-- Puni supports many major modes, not only Lisp.
-- Puni has an API for defining your own soft deletion commands.
+Puni's cons:
+
+- Puni doesn't implement `down-list`, so it lacks commands that needs to go
+  into a list, like joining the sexps before and after point.
+- Many of ParEdit's behavior is specially tweaked for Lisp, like inserting a
+  `(` will also insert a space before it when proper. Puni doesn't do that.
+
+ParEdit could be mostly replaced by Puni. But if you are wondering if there are
+still more efficient way of editing Lisp code, maybe
+[Lispy](https://github.com/abo-abo/lispy) is for you.
+
+Lispy is like ParEdit, with shorter (mostly single-key, without modifier)
+keybindings. It feels like modal editing for Lisp, that means the commands are
+faster to execute, and easier to combine to form complex operations. This
+keybinding design is the killer feature of Lispy.
+
+Lispy also offers much more commands than ParEdit, focusing on faster move,
+inline help, code evaluation, semantic transformation of Lisp code, etc. These
+features are implemented for Python, Julia, and several Lisp dialects.
 
 ### Smartparens
 
 [Smartparens](https://github.com/Fuco1/smartparens) is ParEdit for all
-languages. And that means fancy sexp-manipulating commands for all languages!
+languages, like Puni.
 
 It takes a different approach than Puni: instead of making use of Emacs
 built-in mechanisms, it creates its own extensible machine for parsing pairs,
-and extend it for many languages. The result: It's around 10k lines of code,
-while Puni is around 1k lines.
+and extends it for many languages. The result: It's around 10k lines of code,
+while Puni is around 2k lines.
 
 At present, the main problem of smartparens is many bugs aren't fixed for
 years. For example, due to changes in the architecture, HTML related
@@ -204,8 +232,7 @@ save it. Now you'll encounter many problems using smartparens in `web-mode`.
 The biggest one, to me, is `sp-kill-hybrid-sexp` (the equivalent of
 `puni-kill-line`) is not working in `web-mode`.
 
-Puni is obvious lacking in functionality compared with smartparens. But the
-advantages are:
+Puni lacks some commands that smartparens has. But the advantages are:
 
 - Puni has simpler architecture and much less code, so it's easier to maintain.
 - Puni contains no language-specific logic, so there'll never be situations
@@ -287,8 +314,10 @@ First we have some "delete by move" commands:
 | `puni-kill-line`            | `C-k`              |
 | `puni-backward-kill-line`   | `C-S-k`            |
 
-When there is an active region, these commands all try to delete/kill that
-region instead. If it will cause an unbalanced state, Puni asks you to confirm.
+When there is an active region, `puni-forward-delete-char` and
+`puni-backward-delete-char` try to delete/kill that region instead (This
+behavior respects the variable `delete-active-region`). If it will cause an
+unbalanced state, Puni asks you to confirm.
 
 You can also call `puni-kill-active-region` directly. It's bind to `C-w`.
 
@@ -309,9 +338,9 @@ We have some "navigate by sexp" commands:
 | `puni-beginning-of-sexp` | `C-M-a`            |
 | `puni-end-of-sexp`       | `C-M-e`            |
 
-These are similar to their built-in versions, but based on Puni's "strict
-forward/backward sexp" functions, so the behavior is more predictable, and
-won't take you out of current sexp.
+`puni-forward/backward-sexp` are similar to their built-in versions, but based
+on Puni's "strict forward/backward sexp" functions, so the behavior is more
+predictable, and won't take you out of current sexp.
 
 When you call `puni-beginning-of-sexp`, it will take you to the point after the
 opening delimiter, then before it, then after another one... So consecutively
@@ -331,7 +360,102 @@ These commands basically takes you to the next/previous punctuation, but it
 does more than that to give you a "syntactical navigating" feel. See their
 docstrings for detail. These are also handy in `text-mode`.
 
-## Define your own commands
+### Marking commands
+
+Puni offeres commands to mark things:
+
+- `puni-mark-sexp-at-point`
+- `puni-mark-list-around-point`
+- `puni-mark-sexp-around-point`
+- `puni-expand-region`
+
+`puni-expand-region` is designed to be called consecutively. It marks the sexp
+at point, then the list around point, then the sexp around point, then the list
+containing the sexp around point... In short, it expands the active region by
+semantic units.
+
+These commands don't have pre-defined keybindings in `puni-mode`.
+
+### Sexp manipulating commands.
+
+These commands don't have pre-defined keybindings in `puni-mode`.
+
+#### `puni-squeeze`
+
+This copies the list around point (which is the part inside the sexp around
+point), and delete the sexp around point. It can be used to "rewrap" a sexp:
+
+```elisp
+foo (bar|) baz
+;; Call `puni-squeeze'
+foo | baz
+;; Type in a pair of brackets
+foo [|] baz
+;; Call `yank'
+foo [bar|] baz
+```
+
+When there's an active balanced region, this copies the region and delete the
+sexp around it.
+
+#### slurp & barf
+
+There are 4 these commands:
+
+- `puni-slurp-forward`
+- `puni-barf-forward`
+- `puni-slurp-backward`
+- `puni-barf-backward`
+
+They move the delimiters of the sexp around point across sexps around it. It's
+better to understand them using an example:
+
+```elisp
+foo (bar|) baz
+;; Call `puni-slurp-forward'
+foo (bar| baz)
+;; Call `puni-barf-forward'
+foo (bar|) baz
+;; Call `puni-slurp-backward'
+(foo bar|) baz
+;; Call `puni-barf-backward'
+foo (bar|) baz
+```
+
+#### `puni-raise`
+
+This uses the sexp at point to replace its parent sexp.
+
+```elisp
+(or |(func1) (func2))
+;; Call `puni-raise'
+|(func1)
+```
+
+If there's an active balanced region, this replaces the region's parent sexp
+with it.
+
+#### `puni-convolute`
+
+This exchanges the order of application of two closest outer forms.
+
+```elisp
+(let ((var (func)))
+  (some-macro
+    |body))
+;; Call `puni-convolute'
+(some-macro
+  (let ((var (func)))
+    |body))
+```
+
+#### Other commands
+
+- `puni-splice`: Unwrap the sexp around point.
+- `puni-split`: Split the sexp around point into two.
+- `puni-transpose`: Swap the sexps before and after point.
+
+## Define your own soft deletion commands
 
 The API for this is `puni-soft-delete-by-move`. Let's see a simplified
 definition of `puni-kill-line`. Notice the comments about arguments of
@@ -491,15 +615,15 @@ you can create soft deletion commands that fits your need and taste.
 If this is not enough, read the "APIs" section in the source code. Puni further
 provides:
 
-- Sexp navigating functions: go forward/backward, or goto the beginning/end of
-  sexp.
-- `puni-up-list`: Move out of current sexp.
+- Sexp navigating/locating functions: Move by sexps, locating the boundary of
+  sexps/lists.
 - `puni-region-balance-p`: Test if region is balanced.
 - `puni-soft-delete`: Similar to `puni-soft-delete-by-move` but you need to
   tell it delete from which point to which point directly.
+- Other tool functions.
 
 Be sure to use the implementation of built-in commands as a reference when
-defining your own commands! Also, read the
+defining your own commands. Also, read the
 [wiki](https://github.com/AmaiKinono/puni/wiki) for inspirations.
 
 ## Caveats
@@ -570,15 +694,6 @@ For now, you can use these for auto pairing:
 
 - For major modes using SMIE, there's a `smie-close-block` command.
 
-### Lack of fancy sexp-manipulating commands
-
-Paredit and smartparens have fancy sexp-manipulating commands, while Puni
-doesn't have them, as mentioned above.
-
-I found the combination of sexp-browsing commands, soft-deletion commands, and
-mark/kill/yank could do almost any fancy sexp manipulations. It also requires
-less thinking, and feels more intuitive this way.
-
 ## What does "Puni" means anyway?
 
 "punipuni"（ぷにぷに）is a Japanese mimetic word means "soft", "bouncy", or
@@ -596,13 +711,14 @@ But please keep in mind that, due to the unique approach Puni takes, it can't
 fix every use case in every language, or we'll end up with a lot of ad-hoc
 tricks, which contradicts with the unified approach taken by Puni.
 
-So, before you report a bug of the deletion commands, I'd like you to:
+So, before you report a bug of the commands, I'd like you to:
 
 - Make sure you've read README thoroughly, and have at least a vague concept of
   how Puni works.
 
-- Try `forward-sexp` and `backward-sexp` around the thing you want to delete,
-  and get an idea of how they understand the syntactic structure around there.
+- Try `forward-sexp` and `backward-sexp` around the thing you want to
+  delete/manipulate on, and get an idea of how they understand the syntactic
+  structure around there.
 
   Here we are talking about the built-in `forward/backward-sexp` commands, not
   `puni-forward/backward-sexp`. When `puni-mode` is enabled, `C-M-f` and

@@ -27,12 +27,13 @@
 
 ;;; Commentary:
 
-;; Puni is a package for soft deletion, which means deleting while keeping
-;; expressions balanced.  Here are the main features:
+;; Puni is a package for structured editing.  Its main features are:
 
 ;; - A set of customizable soft deletion commands, enabled by `puni-mode'.
+;;   Soft deletion means deleting while keeping expressions balanced.
 ;; - A simple API `puni-soft-delete-by-move', for defining your own soft
 ;;   deletion commands.
+;; - Sexp navigating and manipulating commands.
 ;; - Completely based on Emacs built-in mechanisms, doesn't contain any
 ;;   language-specific logic, yet work on many major modes.
 
@@ -50,7 +51,10 @@
 
 (require 'cl-lib)
 (require 'rx)
+(require 'pulse)
 (require 'subr-x)
+
+;;;; User options
 
 (defgroup puni nil
   "Customizable soft deletion."
@@ -59,6 +63,13 @@
   :group 'tools
   :prefix "puni-"
   :link '(url-link "https://github.com/AmaiKinono/puni"))
+
+(defcustom puni-blink-region-face nil
+  "A symbol of the face used for blinking region.
+Nil means use `pulse-highlight-start-face'."
+  :type '(choice (const :tag "Default" nil)
+                 (symbol :tag "Face"))
+  :group 'citre)
 
 ;;;; Internals
 
@@ -322,8 +333,7 @@ Return the point if success, otherwise return nil."
 
 (defun puni--forward-comment-block ()
   "Jump forward a whole comment block.
-Return the point if success.  When the closing delimiter of the
-comment is newline, this goes to the point before the newline."
+Return the point if success."
   (let ((from (point))
         to)
     (save-excursion
@@ -353,10 +363,7 @@ Doesn't work on a single-line comment at the end of buffer, and
 there's no trailing newline."
   (save-excursion
     (and (not (puni--forward-blanks))
-         ;; We don't use `puni--forward-comment-block' here, see its docstring.
-         (let ((from (point)))
-           (forward-comment 1)
-           (not (eq from (point))))
+         (puni--forward-comment-block)
          (eq (char-before) ?\n))))
 
 (defun puni--end-of-single-line-comment-p ()
@@ -791,6 +798,182 @@ considered as in the comment."
            (setq to (point))))
        (when to (goto-char to))))))
 
+;;;;; Indent
+
+(defun puni--indent-line ()
+  "Indent current line.
+This calls `indent-line-function' internally.  However, if it
+can't decide the exact column to indent to, and cycle through
+possible indent offsets, this doesn't change the indentation.
+
+In any situation, this tries to restore the cursor to a
+reasonable position, and returns the change of indentation (can
+be zero)."
+  ;; `indent-for-tab-command' and some of the functions it calls checks if
+  ;; `this-command' equals to `last-command', and the "cycle through possible
+  ;; offsets" behavior may only be triggered if this is true.
+  (let* ((this-command 'indent-for-tab-command)
+         (last-command 'indent-for-tab-command)
+         (bol (line-beginning-position))
+         (orig-indentation (current-indentation))
+         (orig-col-relative-to-indentation (- (current-column)
+                                              orig-indentation))
+         (orig-spaces (buffer-substring bol
+                                        (save-excursion (back-to-indentation)
+                                                        (point))))
+         (new-indentation (lambda () (progn
+                                       (indent-according-to-mode)
+                                       (current-indentation))))
+         (1st-indentation (funcall new-indentation))
+         (2nd-indentation (funcall new-indentation)))
+    (if (eq 1st-indentation 2nd-indentation)
+        (progn
+          (move-to-column (max 0 (+ 1st-indentation
+                                    orig-col-relative-to-indentation)))
+          (- 1st-indentation orig-indentation))
+      (delete-region bol (save-excursion (back-to-indentation)
+                                         (point)))
+      (goto-char bol)
+      (insert orig-spaces)
+      (move-to-column (+ orig-indentation
+                         orig-col-relative-to-indentation))
+      0)))
+
+(defun puni--column-of-position (pos)
+  "Column of position POS."
+  (save-excursion (goto-char pos)
+                  (current-column)))
+
+(defun puni--reindent-region (beg end original-column &optional no-recalculate)
+  "Reindent region between BEG and END.
+Notice this doesn't reindent the region line-by-line like
+`indent-region'.  Rather, it assumes the region was originally
+properly indented, and the column at its beginning was
+ORIGINAL-COLUMN.  Then, this column changed, because the text
+before it changed, or the whole region was inserted at BEG.  This
+function then adjust the indentation of the lines in region, to
+keep their relative indentation unchanged.
+
+When necessary, the indentation is recalculated by
+`puni--indent-line', and the relative indentation of the lines is
+still kept unchanged.  The \"necessary\" situations are:
+
+- When the first non-empty line is not the line of BEG.
+- When there are only blanks between BEG and the start of its line.
+
+This can be overrided by NO-RECALCULATE.
+
+This function tries to restore the cursor to a reasonable
+position (if it's between BEG and END), and returns the change of
+indentation of the rest lines in region (can be zero).
+
+It's designed like this to keep manually adjusted indentation by
+the user.  When that's desired, this works better than
+`indent-region'."
+  (let ((orig-col-relative-to-indentation
+         (when (<= beg (point) end)
+           (- (current-column) (current-indentation))))
+        offset)
+    ;; Point at the end of region will change when we adjust indentation line
+    ;; by line, so we use a marker.
+    (setq end (save-excursion (goto-char end)
+                              (point-marker)))
+    (save-excursion
+      (goto-char beg)
+      (setq offset (- (current-column) original-column))
+      (unless no-recalculate
+        (cond
+         ((looking-at (rx (* blank) line-end))
+          (progn (puni--forward-blanks end)
+                 (if (eq (point) end)
+                     (setq offset 0)
+                   (setq offset (puni--indent-line)))))
+         ((looking-back (rx line-start (* blank))
+                        (line-beginning-position))
+          (setq offset (+ offset (puni--indent-line))))))
+      (unless (eq offset 0)
+        (while (and (eq (forward-line) 0)
+                    (bolp)
+                    (< (point) end))
+          (unless (puni--line-empty-p)
+            (let* ((orig-indentation (current-indentation))
+                   (new-indentation (+ orig-indentation offset)))
+              (when (wholenump new-indentation)
+                (indent-line-to new-indentation)))))))
+    (when orig-col-relative-to-indentation
+      (move-to-column (max 0 (+ (current-indentation)
+                                orig-col-relative-to-indentation))))
+    offset))
+
+;;;;; Active region
+
+(defun puni--active-region-direction ()
+  "Return the direction of active region.
+If the point is at the beginning of it, return `backward',
+otherwise return `forward'.  If there's no active region, return
+nil."
+  (when (use-region-p)
+    (if (> (mark) (point))
+        'backward
+      'forward)))
+
+(defun puni--mark-region (beg end &optional direction replace-mark)
+  "Mark and activate a region between BEG and END.
+If DIRECTION is `forward', mark at BEG and goto END.  If
+DIRECTION is `backward', mark at END and goto BEG.  If it's nil,
+and there's an active region, using the direction of that region,
+otherwise mark at BEG and goto END.
+
+If REPLACE-MARK is non-nil, replace the existing mark using the
+new mark, otherwise push the existing one into mark ring."
+  (unless direction
+    (setq direction (or (puni--active-region-direction)
+                        'forward)))
+  (setq deactivate-mark nil)
+  (pcase direction
+    ('forward (if replace-mark (set-mark beg) (push-mark beg 'nomsg))
+              (goto-char end)
+              (activate-mark))
+    ('backward (if replace-mark (set-mark end) (push-mark end 'nomsg))
+               (goto-char beg)
+               (activate-mark))
+    (_ (error "Invalid DIRECTION"))))
+
+;;;;; Misc
+
+(defun puni--interval-contain-p (i1 i2)
+  "Check if I2 is inside I1.
+I1 and I2 are cons pairs of integers.  We say I2 is inside I1
+when it's a true subset of I1.
+
+If I1 is nil, return nil."
+  (when i1
+    (and (<= (car i1) (car i2) (cdr i2) (cdr i1))
+         (not (and (eq (car i1) (car i2))
+                   (eq (cdr i1) (cdr i2)))))))
+
+(defun puni--bigger-interval (i1 i2)
+  "Return the one that contains the other one in I1 and I2.
+I1 and I2 are cons pairs of integers.
+
+When I1 or I2 is nil, or neither of them contains the other one,
+return nil."
+  (when (and i1 i2)
+    (cond
+     ((and (<= (car i1) (car i2) (cdr i2) (cdr i1))) i1)
+     ((and (<= (car i2) (car i1) (cdr i1) (cdr i2))) i2))))
+
+(defun puni--smaller-interval (i1 i2)
+  "Return the one that is contained by the other one in I1 and I2.
+I1 and I2 are cons pairs of integers.
+
+When I1 or I2 is nil, or neither of them contains the other one,
+return nil."
+  (when (and i1 i2)
+    (cond
+     ((and (<= (car i1) (car i2) (cdr i2) (cdr i1))) i2)
+     ((and (<= (car i2) (car i1) (cdr i1) (cdr i2))) i1))))
+
 ;;;; APIs
 
 ;;;;; API: Strict forward/backward sexp functions
@@ -841,18 +1024,16 @@ move one comment line a time."
     (let ((to (point)))
       (unless (eq from to) to))))
 
-(defun puni-strict-beginning-of-sexp ()
-  "Go to the beginning of the sexp around point.
-This means after the opening delimiter.
-
+(defun puni-beginning-of-list-around-point ()
+  "Go to the beginning of the list around point.
 Return the point if it's moved."
   (let (moved)
     (while (puni-strict-backward-sexp)
       (setq moved t))
     (when moved (point))))
 
-(defun puni-strict-end-of-sexp ()
-  "Backward version of `puni-strict-beginning-of-sexp'."
+(defun puni-end-of-list-around-point ()
+  "Backward version of `puni-beginning-of-list-around-point'."
   (let (moved)
     (while (puni-strict-forward-sexp)
       (setq moved t))
@@ -863,8 +1044,72 @@ Return the point if it's moved."
 When BACKWARD is non-nil, move backward.
 
 Return the point if the move succeeded."
+  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+    (if backward
+        (goto-char (car bounds))
+      (goto-char (cdr bounds)))))
+
+;;;;; API: Bounds of sexp-related things
+
+(defun puni-bounds-of-sexp-at-point ()
+  "Bounds of sexp at or after point.
+It's returned as a cons cell.  If there's no sexp at point,
+return nil."
   (let ((from (point))
-        (beg (save-excursion (or (puni-strict-beginning-of-sexp)
+        beg-forward
+        end-forward
+        beg-backward
+        end-backward
+        smaller-bounds)
+    (save-excursion
+      (setq end-forward (puni-strict-forward-sexp)
+            beg-forward (puni-strict-backward-sexp)))
+    (save-excursion
+      (setq beg-backward (puni-strict-backward-sexp)
+            end-backward (puni-strict-forward-sexp)))
+    (cond
+     ;; At the beginning of a sexp.
+     ((eq beg-forward from) (cons beg-forward end-forward))
+     ;; At the end of a sexp.
+     ((eq end-backward from) (cons beg-backward end-backward))
+     ;; Inside a sexp.
+     ((and (setq smaller-bounds (puni--smaller-interval
+                                 (cons beg-forward end-forward)
+                                 (cons beg-backward end-backward)))
+           (<= (car smaller-bounds) from (cdr smaller-bounds)))
+      smaller-bounds)
+     ;; Outside a sexp, so we do nothing.
+     )))
+
+(defun puni-beginning-pos-of-list-around-point ()
+  "Beginning position of list around point."
+  ;; We allow `puni-beginning-of-list-around-point' to fail, as if that
+  ;; happens, we are at one of the bounds.
+  (save-excursion (or (puni-beginning-of-list-around-point)
+                      (point))))
+
+(defun puni-end-pos-of-list-around-point ()
+  "End position of list around point."
+  ;; We allow `puni-end-of-list-around-point' to fail, as if that happens, we
+  ;; are at one of the bounds.
+  (save-excursion (or (puni-end-of-list-around-point)
+                      (point))))
+
+(defun puni-bounds-of-list-around-point ()
+  "Bounds of list around point.
+It's returned as a cons cell.  If there's no sexp around point,
+meaning the point is at the top level scope, positions at the
+beginning/end of buffer is returned."
+  (when-let ((beg (puni-beginning-pos-of-list-around-point))
+             (end (puni-end-pos-of-list-around-point)))
+    (cons beg end)))
+
+(defun puni-bounds-of-sexp-around-point ()
+  "Bounds of the sexp around point.
+It's returned as a cons cell.  If there's no sexp around point,
+return nil."
+  (let ((from (point))
+        (beg (save-excursion (or (puni-beginning-of-list-around-point)
                                  (point))))
         (backward-char-with-spaces
          (lambda ()
@@ -883,7 +1128,19 @@ Return the point if the move succeeded."
               (when (and end (> end from)) (setq done t)))
           (setq err t))))
     (when (and done (not err))
-      (goto-char (if backward beg end)))))
+      (cons beg end))))
+
+(defun puni-beginning-pos-of-sexp-around-point ()
+  "Beginning position of sexp around point.
+If there's no sexp around point, return nil."
+  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+    (car bounds)))
+
+(defun puni-end-pos-of-sexp-around-point ()
+  "End position of sexp around point.
+If there's no sexp around point, return nil."
+  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+    (cdr bounds)))
 
 ;;;;; API: Balance test
 
@@ -958,7 +1215,7 @@ non-nil, see the explanation in `puni-region-balance-p'."
              t)))
 
 (defun puni-soft-delete
-    (from to &optional strict-sexp style kill fail-action)
+    (from to &optional strict-sexp style kill fail-action return-region)
   "Soft delete from point FROM to TO.
 If STRICT-SEXP is nil, symbol delimiters like \"if..end if\",
 \"begin..end\" and \"def\" are considered as balanced
@@ -990,7 +1247,10 @@ action after failure.  It can be:
 - `jump': Jump to point TO, and return nil.
 - `jump-and-reverse-delete': Jump to point TO, and try soft
   delete from TO to FROM, with the same arguments, but STYLE
-  being `within'."
+  being `within'.
+
+When RETURN-REGION is non-nil, don't actually delete the region,
+but return its beginning and end position in a cons cell."
   (setq style (or style 'precise))
   (unless (eq from to)
     (let* ((forward (< from to))
@@ -1028,6 +1288,10 @@ action after failure.  It can be:
                                     prev-goal)))
                             (when (and goal (not (eq from goal)))
                               goal))))
+           (act-on-region (lambda (from to)
+                            (if return-region
+                                (cons (min from to) (max from to))
+                              (puni-delete-region from to kill))))
            (fail-act (lambda ()
                        (pcase fail-action
                          ('nil nil)
@@ -1036,21 +1300,22 @@ action after failure.  It can be:
                                         (funcall move)
                                         (let ((pt (point)))
                                           (unless (eq from pt)
-                                            (puni-delete-region
-                                             from pt kill)))))
+                                            (funcall act-on-region from pt)))))
                          ('jump (goto-char to) nil)
                          ('jump-and-reverse-delete
                           (goto-char to)
                           (puni-soft-delete
-                           to from strict-sexp 'within kill nil))
+                           to from strict-sexp 'within kill nil return-region))
                          (_ (error "Invalid FAIL-ACTION"))))))
       (or (pcase style
             ('beyond (when-let ((goal (funcall beyond-goal)))
-                       (puni-delete-region from goal kill)))
+                       (funcall act-on-region from goal)))
             ('within (when-let ((goal (funcall within-goal)))
-                       (puni-delete-region from goal kill)))
-            ('precise (puni-delete-region-keep-balanced
-                       from to strict-sexp kill)))
+                       (funcall act-on-region from goal)))
+            ('precise (when (puni-region-balance-p from to strict-sexp)
+                        (if return-region
+                            (cons (min from to) (max from to))
+                          (puni-delete-region from to kill)))))
           (funcall fail-act)))))
 
 (defun puni-soft-delete-by-move
@@ -1061,36 +1326,6 @@ the meaning of STRICT-SEXP, STYLE, KILL and FAIL-ACTION."
   (let ((pt (point))
         (goal (save-excursion (funcall func) (point))))
     (puni-soft-delete pt goal strict-sexp style kill fail-action)))
-
-;;;;; API: misc
-
-(defun puni-reindent-line ()
-  "Reindent current line.
-This calls `indent-line-function' internally.  However, if it
-can't decide the exact column to indent to, and cycle through
-possible indent offsets, this does nothing."
-  ;; `indent-for-tab-command' and some of the functions it calls checks if
-  ;; `this-command' equals to `last-command', and the "cycle through possible
-  ;; offsets" behavior may only be triggered if this is true.
-  (let* ((this-command 'indent-for-tab-command)
-         (last-command 'indent-for-tab-command)
-         (bol (line-beginning-position))
-         (orig-indent-pt (save-excursion (back-to-indentation)
-                                         (point)))
-         (orig-pt (point))
-         (orig-spaces (buffer-substring bol orig-indent-pt))
-         (new-indent-pt (lambda () (progn
-                                     (indent-according-to-mode)
-                                     (save-excursion
-                                       (back-to-indentation)
-                                       (point)))))
-         (1st-indent-pt (funcall new-indent-pt))
-         (2nd-indent-pt (funcall new-indent-pt)))
-    (unless (eq 1st-indent-pt 2nd-indent-pt)
-      (delete-region bol 2nd-indent-pt)
-      (save-excursion (goto-char bol)
-                      (insert orig-spaces))
-      (goto-char orig-pt))))
 
 ;;;; Deletion Commands
 
@@ -1197,6 +1432,7 @@ means kill words forward."
 
 ;;;;; Line
 
+;;TODO: kill single line comment without killing newline.
 ;;;###autoload
 (defun puni-kill-line (&optional n)
   "Kill a line forward while keeping expressions balanced.
@@ -1206,7 +1442,7 @@ means kill lines backward.
 This respects the variable `kill-whole-line'."
   (interactive "P")
   (let* ((from (point))
-         to)
+         to col-of-sexp-after spaces-to-delete)
     (if (and n (< n 0))
         (puni-backward-kill-line (- n))
       (setq to (save-excursion (forward-line (or n 1))
@@ -1219,8 +1455,24 @@ This respects the variable `kill-whole-line'."
                   ;; following newline char should be killed.
                   (eq to (1+ from)))
         (setq to (1- to)))
-      (and (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
-           (puni-reindent-line)))))
+      (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
+                                            nil nil 'return-region)))
+        (save-excursion
+          (goto-char (cdr region))
+          (when (looking-at (rx (* blank) (not (any blank "\n"))))
+            (setq col-of-sexp-after (puni--column-of-position
+                                     (1- (match-end 0))))
+            (setq spaces-to-delete (- (match-end 0) (cdr region) 1))))
+        (puni-delete-region (car region) (cdr region) 'kill)
+        (when col-of-sexp-after
+          (save-excursion
+            (goto-char from)
+            (delete-char spaces-to-delete)
+            (puni--reindent-region from
+                                   (progn (puni-strict-forward-sexp)
+                                          (point))
+                                   col-of-sexp-after
+                                   'no-recalculate)))))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
@@ -1230,10 +1482,8 @@ means kill lines forward.
 
 This respects the variable `kill-whole-line'."
   (interactive "P")
-  (let ((indent-pt (save-excursion (back-to-indentation)
-                                   (point)))
-        (from (point))
-        to)
+  (let ((from (point))
+        to col-after-region)
     (if (and n (< n 0))
         (puni-kill-line (- n))
       (unless (eq n 0)
@@ -1244,12 +1494,18 @@ This respects the variable `kill-whole-line'."
                     n
                     (eq to (1- from)))
           (setq to (1+ to)))
-        (and (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
-             ;; If we are killing from a point inside the indent spaces, to the
-             ;; beginning of line, we don't reindent.
-             (unless (and (null n)
-                          (>= indent-pt from))
-               (puni-reindent-line)))))))
+        (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
+                                              nil nil 'return-region)))
+          (setq col-after-region (puni--column-of-position (cdr region)))
+          (puni-delete-region (car region) (cdr region) 'kill)
+          (save-excursion
+            (goto-char (car region))
+            (when (looking-at (rx (* blank) (not (any blank "\n"))))
+              (puni--reindent-region (car region)
+                                     (progn (puni-strict-forward-sexp)
+                                            (point))
+                                     col-after-region
+                                     'no-recalculate))))))))
 
 ;;;;; Force delete
 
@@ -1310,7 +1566,7 @@ begin so we can pop back to it."
   (interactive)
   (unless (bobp)
     (let ((from (point)))
-      (or (puni-strict-beginning-of-sexp)
+      (or (puni-beginning-of-list-around-point)
           (puni-up-list 'backward))
       (when (bobp)
         (push-mark from)))))
@@ -1329,7 +1585,7 @@ can pop back to it."
   (interactive)
   (unless (eobp)
     (let ((from (point)))
-      (or (puni-strict-end-of-sexp)
+      (or (puni-end-of-list-around-point)
           (puni-up-list))
       (when (eobp)
         (push-mark from)))))
@@ -1402,6 +1658,397 @@ feel."
                                     "*")
                             (line-beginning-position))
           (goto-char (match-beginning 0)))))))
+
+;;;; Selection commands
+
+;;;###autoload
+(defun puni-mark-sexp-at-point ()
+  "Mark the sexp at or after point."
+  (interactive)
+  (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+    (puni--mark-region (car bounds) (cdr bounds))))
+
+;;;###autoload
+(defun puni-mark-list-around-point ()
+  "Mark the list around point.
+The list around point is the part inside the sexp around point,
+i.e., after its opening delimiter, and before its closing
+delimiter.  If the point is already at the top scope, then the
+whole buffer is the list around point."
+  (interactive)
+  (when-let ((bounds (puni-bounds-of-list-around-point)))
+    (puni--mark-region (car bounds) (cdr bounds))))
+
+;;;###autoload
+(defun puni-mark-sexp-around-point ()
+  "Mark the sexp around point."
+  (interactive)
+  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+    (puni--mark-region (car bounds) (cdr bounds))))
+
+;;;###autoload
+(defun puni-expand-region ()
+  "Expand selected region by semantic units."
+  (interactive)
+  (let* ((orig-bounds (if (use-region-p)
+                          (cons (region-beginning) (region-end))
+                        (cons (point) (point))))
+         (find-bigger-bounds
+          (lambda (func)
+            (puni--bigger-interval
+             (save-excursion (goto-char (car orig-bounds))
+                             (funcall func))
+             (save-excursion (goto-char (cdr orig-bounds))
+                             (funcall func)))))
+         (bounds-of-sexp-at (funcall find-bigger-bounds
+                                     #'puni-bounds-of-sexp-at-point))
+         (bounds-of-list-around (funcall find-bigger-bounds
+                                         #'puni-bounds-of-list-around-point))
+         (bounds-of-sexp-around (funcall find-bigger-bounds
+                                         #'puni-bounds-of-sexp-around-point))
+         (bounds-of-outer-sexp
+          (when bounds-of-sexp-around
+            (puni--bigger-interval
+             (save-excursion (goto-char (car bounds-of-sexp-around))
+                             (puni-bounds-of-sexp-around-point))
+             (save-excursion (goto-char (cdr bounds-of-sexp-around))
+                             (puni-bounds-of-sexp-around-point)))))
+         (replace-mark (eq last-command this-command)))
+    ;; Don't select blanks around the list.
+    (when bounds-of-list-around
+      (save-excursion
+        (goto-char (car bounds-of-list-around))
+        (puni--forward-blanks (car orig-bounds))
+        (setf (car bounds-of-list-around) (point))
+        (goto-char (cdr bounds-of-list-around))
+        (puni--backward-blanks (cdr orig-bounds))
+        (setf (cdr bounds-of-list-around) (point))))
+    (unless
+        (cl-dolist (bounds (list bounds-of-sexp-at bounds-of-list-around
+                                 bounds-of-sexp-around bounds-of-outer-sexp))
+          (when (puni--interval-contain-p bounds orig-bounds)
+            (puni--mark-region (car bounds) (cdr bounds) nil replace-mark)
+            (cl-return t)))
+      (user-error "Active region is not balanced"))))
+
+;;;; Sexp manipulating commands
+
+;;;###autoload
+(defun puni-squeeze ()
+  "Copy the list around point, and delete the sexp around point.
+This can be used to \"rewrap\" a sexp.  You could squeeze it
+first, type in the new delimiters, and then yank inside them.
+
+When there's an active balanced region, copy it and delete the
+sexp around it."
+  (interactive)
+  (when-let ((bounds-inside
+              (if (use-region-p)
+                  (let ((beg (region-beginning))
+                        (end (region-end)))
+                    (unless (puni-region-balance-p beg end 'strict)
+                      (user-error "The active region is not balanced"))
+                    (cons beg end))
+                (puni-bounds-of-list-around-point)))
+             (bounds-around (puni-bounds-of-sexp-around-point)))
+    (copy-region-as-kill (car bounds-inside) (cdr bounds-inside))
+    (puni-delete-region (car bounds-around) (cdr bounds-around))))
+
+;;;###autoload
+(defun puni-slurp-forward ()
+  "Move the closing delimiter of sexp around point forward one sexp."
+  (interactive)
+  (when-let* ((beg-of-delim (puni-end-pos-of-list-around-point))
+              (end-of-delim (puni-end-pos-of-sexp-around-point))
+              (reindent-region-beg-column
+               (puni--column-of-position end-of-delim))
+              (end-of-sexp (save-excursion
+                             (goto-char end-of-delim)
+                             (while (or (puni--forward-blanks)
+                                        (puni--forward-comment-block)))
+                             (puni-strict-forward-sexp)))
+              (delim (buffer-substring beg-of-delim end-of-delim)))
+    (save-excursion
+      (goto-char end-of-sexp)
+      (insert delim)
+      (puni-delete-region beg-of-delim end-of-delim)
+      (puni--reindent-region beg-of-delim end-of-sexp
+                             reindent-region-beg-column)
+      (pulse-momentary-highlight-region
+       (point) (- (point) (- end-of-delim beg-of-delim))
+       puni-blink-region-face)
+      (setq deactivate-mark nil))))
+
+;;;###autoload
+(defun puni-barf-forward ()
+  "Move the closing delimiter of sexp around point backward one sexp."
+  (interactive)
+  (when-let* ((beg-of-delim (puni-end-pos-of-list-around-point))
+              (end-of-delim (puni-end-pos-of-sexp-around-point))
+              (beg-of-sexp (save-excursion
+                             (goto-char beg-of-delim)
+                             (puni-strict-backward-sexp)
+                             (while (or (puni--backward-comment-block)
+                                        (puni--backward-blanks)))
+                             (when (not (eq (point) beg-of-delim))
+                               (point))))
+              (reindent-region-beg-column
+               (puni--column-of-position beg-of-sexp))
+              (delim (buffer-substring beg-of-delim end-of-delim)))
+    (save-excursion
+      (puni-delete-region beg-of-delim end-of-delim)
+      (goto-char beg-of-sexp)
+      (insert delim)
+      (puni--reindent-region (+ beg-of-sexp (- end-of-delim beg-of-delim))
+                             end-of-delim
+                             reindent-region-beg-column)
+      (pulse-momentary-highlight-region
+       (point) (- (point) (- end-of-delim beg-of-delim))
+       puni-blink-region-face)
+      (setq deactivate-mark nil))))
+
+;;;###autoload
+(defun puni-slurp-backward ()
+  "Move the opening delimiter of sexp around point backward one sexp."
+  (interactive)
+  (when-let* ((end-of-delim (puni-beginning-pos-of-list-around-point))
+              (reindent-region-beg-column
+               (puni--column-of-position end-of-delim))
+              (bounds-around (puni-bounds-of-sexp-around-point))
+              (beg-of-delim (car bounds-around))
+              (beg-of-sexp (save-excursion
+                             (goto-char beg-of-delim)
+                             (while (or (puni--backward-comment-block)
+                                        (puni--backward-blanks)))
+                             (puni-strict-backward-sexp)))
+              (delim (buffer-substring beg-of-delim end-of-delim)))
+    (save-excursion
+      (puni-delete-region beg-of-delim end-of-delim)
+      (goto-char beg-of-sexp)
+      (insert delim)
+      (puni--reindent-region end-of-delim (cdr bounds-around)
+                             reindent-region-beg-column)
+      (pulse-momentary-highlight-region
+       (point) (- (point) (- end-of-delim beg-of-delim))
+       puni-blink-region-face)
+      (setq deactivate-mark nil))))
+
+;;;###autoload
+(defun puni-barf-backward ()
+  "Move the opening delimiter of sexp around point forward one sexp."
+  (interactive)
+  (when-let* ((end-of-delim (puni-beginning-pos-of-list-around-point))
+              (bounds-around (puni-bounds-of-sexp-around-point))
+              (beg-of-delim (car bounds-around))
+              (end-of-sexp (save-excursion
+                             (goto-char end-of-delim)
+                             (puni-strict-forward-sexp)
+                             (while (or (puni--forward-blanks)
+                                        (puni--forward-comment-block)))
+                             (when (not (eq (point) end-of-delim))
+                               (point))))
+              (reindent-region-beg-column
+               (puni--column-of-position end-of-sexp))
+              (delim (buffer-substring beg-of-delim end-of-delim)))
+    (save-excursion
+      (goto-char end-of-sexp)
+      (insert delim)
+      (puni-delete-region beg-of-delim end-of-delim)
+      (puni--reindent-region end-of-sexp
+                             (cdr bounds-around)
+                             reindent-region-beg-column)
+      (pulse-momentary-highlight-region
+       (point) (- (point) (- end-of-delim beg-of-delim))
+       puni-blink-region-face)
+      (setq deactivate-mark nil))))
+
+;;;###autoload
+(defun puni-splice ()
+  "Remove the delimiters of sexp around point."
+  (interactive)
+  (when-let* ((bounds-inside (puni-bounds-of-list-around-point))
+              (bounds-around (puni-bounds-of-sexp-around-point))
+              (beg1 (car bounds-around))
+              (end1 (car bounds-inside))
+              (beg2 (cdr bounds-inside))
+              (end2 (cdr bounds-around))
+              (open-delim-length (- end1 beg1))
+              (close-delim-length (- end2 beg2)))
+    (puni-delete-region beg1 end1)
+    (puni-delete-region (- beg2 open-delim-length)
+                        (- end2 open-delim-length))
+    (pulse-momentary-highlight-region
+     beg1 (- end2 open-delim-length close-delim-length)
+     puni-blink-region-face)
+    (setq deactivate-mark nil)))
+
+;;;###autoload
+(defun puni-split ()
+  "Split the list around point into two sexps."
+  (interactive)
+  (when-let* ((from (point))
+              (bounds-inside (puni-bounds-of-list-around-point))
+              (bounds-around (puni-bounds-of-sexp-around-point))
+              (open-delim (buffer-substring (car bounds-around)
+                                            (car bounds-inside)))
+              (end-delim (buffer-substring (cdr bounds-inside)
+                                           (cdr bounds-around)))
+              (open-delim-length (length open-delim)))
+    (let (beg-of-next-sexp col-of-next-sexp spaces-before end-of-sexp-before)
+      (puni--backward-blanks)
+      (setq spaces-before (- from (point)))
+      (insert end-delim)
+      (setq end-of-sexp-before (point))
+
+      (puni--forward-blanks)
+      (setq beg-of-next-sexp (point))
+      (setq col-of-next-sexp (current-column))
+      (insert open-delim)
+
+      (save-excursion
+        (goto-char beg-of-next-sexp)
+        (when-let ((end-of-next-sexp (puni-strict-forward-sexp)))
+          (puni--reindent-region (+ beg-of-next-sexp open-delim-length)
+                                 (- end-of-next-sexp (length end-delim))
+                                 col-of-next-sexp 'no-recalculate)
+          (setq deactivate-mark nil)))
+      (goto-char end-of-sexp-before)
+      (forward-char spaces-before))))
+
+;;;###autoload
+(defun puni-raise ()
+  "Replace the sexp around point with sexp at or after point.
+If there's an active balanced region, replace the sexp around it
+with it."
+  (interactive)
+  (let ((active-region-direction (puni--active-region-direction)))
+    (when-let* ((from (point))
+                (bounds-of-this
+                 (if active-region-direction
+                     (let ((beg (region-beginning))
+                           (end (region-end)))
+                       (unless (puni-region-balance-p beg end 'strict)
+                         (user-error "The active region is not balanced"))
+                       (cons beg end))
+                   (puni-bounds-of-sexp-at-point)))
+                (col-at-beg-of-this (puni--column-of-position
+                                     (car bounds-of-this)))
+                (bounds-of-parent (puni-bounds-of-sexp-around-point))
+                (beg-of-parent (car bounds-of-parent))
+                (end-of-parent (cdr bounds-of-parent))
+                (sexp (buffer-substring (car bounds-of-this)
+                                        (cdr bounds-of-this))))
+      (puni-delete-region beg-of-parent end-of-parent)
+      (goto-char beg-of-parent)
+      (let (end-of-sexp-marker)
+        (insert sexp)
+        (setq end-of-sexp-marker (point-marker))
+        (puni--reindent-region beg-of-parent (point)
+                               col-at-beg-of-this 'no-recalculate)
+        (if active-region-direction
+            (puni--mark-region beg-of-parent end-of-sexp-marker
+                               active-region-direction)
+          (goto-char (+ beg-of-parent (- from (car bounds-of-this)))))))))
+
+;;;###autoload
+(defun puni-transpose ()
+  "Swap the sexp before and after point."
+  (interactive)
+  (let (beg1 end1 beg2 end2 fail-flag)
+    (save-excursion
+      (puni-strict-backward-sexp)
+      (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+        (setq beg1 (car bounds)
+              end1 (cdr bounds))
+        (unless (eq beg1 (point))
+          (setq fail-flag t))))
+    (save-excursion
+      (puni--forward-blanks)
+      (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+        (setq beg2 (car bounds)
+              end2 (cdr bounds))
+        (unless (eq beg2 (point))
+          (setq fail-flag t))))
+    (when (and beg1 end1 beg2 end2 (not fail-flag))
+      (let ((sexp1 (buffer-substring beg1 end1))
+            (sexp2 (buffer-substring beg2 end2))
+            (col1 (puni--column-of-position beg1))
+            (col2 (puni--column-of-position beg2))
+            (point-pos-in-blanks-between (- (point) end1)))
+        (puni-delete-region beg2 end2)
+        (goto-char beg2)
+        (insert sexp1)
+        (puni--reindent-region beg2 (point) col1 'no-recalculate)
+        (puni-delete-region beg1 end1)
+        (goto-char beg1)
+        (insert sexp2)
+        (puni--reindent-region beg1 (point) col2 'no-recalculate)
+        (forward-char point-pos-in-blanks-between)))))
+
+;;;###autoload
+(defun puni-convolute ()
+  "Exchange the order of application of two closest outer forms."
+  (interactive)
+  (when-let ((body-beg (point))
+             (body-end (puni-end-pos-of-list-around-point))
+             (body-beg-col (current-column))
+             (body-end-col (puni--column-of-position body-end))
+             (inner-bounds (puni-bounds-of-sexp-around-point))
+             (inner-beg (car inner-bounds))
+             (inner-end (cdr inner-bounds))
+             (inner-beg-col (puni--column-of-position inner-beg))
+             (inner-end-col (puni--column-of-position inner-end))
+             (outer-bounds (save-excursion
+                             (goto-char (car inner-bounds))
+                             (puni-bounds-of-sexp-around-point)))
+             (outer-beg (car outer-bounds))
+             (outer-end (cdr outer-bounds))
+             (outer-beg-col (puni--column-of-position outer-beg))
+             (outer-end-col (puni--column-of-position outer-end))
+             (body (buffer-substring body-beg body-end))
+             (inner-open (buffer-substring inner-beg body-beg))
+             (inner-close (buffer-substring body-end inner-end))
+             (outer-open (buffer-substring outer-beg inner-beg))
+             (outer-close (buffer-substring inner-end outer-end)))
+    (let* (pt pt-to-restore
+              (maybe-move-to-column
+               (lambda (col)
+                 (let ((col-pos (save-excursion (move-to-column col)
+                                                (point)))
+                       move)
+                   (save-excursion
+                     (goto-char (min col-pos pt))
+                     (when (puni--forward-blanks (max col-pos pt))
+                       (setq move t)))
+                   (when move
+                     (goto-char col-pos)
+                     (setq pt col-pos))))))
+      (puni-delete-region outer-beg outer-end)
+      (goto-char outer-beg)
+
+      (insert inner-open)
+      (puni--reindent-region outer-beg (point) inner-beg-col 'no-recalculate)
+      (setq pt (point))
+      (funcall maybe-move-to-column inner-beg-col)
+
+      (insert outer-open)
+      (puni--reindent-region pt (point) outer-beg-col 'no-recalculate)
+      (setq pt (point))
+      (funcall maybe-move-to-column body-beg-col)
+      (setq pt-to-restore pt)
+
+      (insert body)
+      (puni--reindent-region pt (point) body-beg-col 'no-recalculate)
+      (setq pt (point))
+
+      (insert outer-close)
+      (puni--reindent-region pt (point) inner-end-col 'no-recalculate)
+      (setq pt (point))
+
+      (insert inner-close)
+      (puni--reindent-region pt (point) body-end-col 'no-recalculate)
+
+      (goto-char pt-to-restore))))
 
 ;;;; Puni mode
 
