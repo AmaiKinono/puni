@@ -1111,17 +1111,18 @@ return nil."
   (let ((from (point))
         (beg (save-excursion (or (puni-beginning-of-list-around-point)
                                  (point))))
-        (backward-char-with-spaces
+        (backward-within-delimiter
          (lambda ()
            (puni--backward-syntax " ")
-           (condition-case _
-               (progn (forward-char -1) (point))
-             (error nil))))
+           (unless (bobp)
+             (or (puni--backward-symbol)
+                 (forward-char -1))
+             (point))))
         end done err)
     (save-excursion
       (while (and (not done) (not err))
         (goto-char beg)
-        (setq beg (funcall backward-char-with-spaces))
+        (setq beg (funcall backward-within-delimiter))
         (if beg
             (progn
               (setq end (puni-strict-forward-sexp))
