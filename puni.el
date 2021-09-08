@@ -1443,7 +1443,7 @@ means kill lines backward.
 This respects the variable `kill-whole-line'."
   (interactive "P")
   (let* ((from (point))
-         to col-of-sexp-after spaces-to-delete)
+         to col-after-spaces-in-line delete-spaces-to)
     (if (and n (< n 0))
         (puni-backward-kill-line (- n))
       (setq to (save-excursion (forward-line (or n 1))
@@ -1456,24 +1456,17 @@ This respects the variable `kill-whole-line'."
                   ;; following newline char should be killed.
                   (eq to (1+ from)))
         (setq to (1- to)))
-      (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
-                                            nil nil 'return-region)))
+      (when (looking-at (rx (* blank)))
+        (setq col-after-spaces-in-line
+              (puni--column-of-position (match-end 0))))
+      (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
+      (when (and (looking-at (rx (* blank) (not (any blank "\n"))))
+                 (setq delete-spaces-to (1- (match-end 0)))
+                 (> (puni--column-of-position delete-spaces-to)
+                    col-after-spaces-in-line))
         (save-excursion
-          (goto-char (cdr region))
-          (when (looking-at (rx (* blank) (not (any blank "\n"))))
-            (setq col-of-sexp-after (puni--column-of-position
-                                     (1- (match-end 0))))
-            (setq spaces-to-delete (- (match-end 0) (cdr region) 1))))
-        (puni-delete-region (car region) (cdr region) 'kill)
-        (when col-of-sexp-after
-          (save-excursion
-            (goto-char from)
-            (delete-char spaces-to-delete)
-            (puni--reindent-region from
-                                   (progn (puni-strict-forward-sexp)
-                                          (point))
-                                   col-of-sexp-after
-                                   'no-recalculate)))))))
+          (move-to-column col-after-spaces-in-line)
+          (puni-delete-region (point) delete-spaces-to 'kill))))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
@@ -1484,29 +1477,18 @@ means kill lines forward.
 This respects the variable `kill-whole-line'."
   (interactive "P")
   (let ((from (point))
-        to col-after-region)
+        to)
     (if (and n (< n 0))
         (puni-kill-line (- n))
       (unless (eq n 0)
         (setq to (save-excursion (forward-line (if n (- n) -1))
-                                 (beginning-of-line)
+                                 (end-of-line)
                                  (point)))
         (unless (or kill-whole-line
                     n
                     (eq to (1- from)))
           (setq to (1+ to)))
-        (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
-                                              nil nil 'return-region)))
-          (setq col-after-region (puni--column-of-position (cdr region)))
-          (puni-delete-region (car region) (cdr region) 'kill)
-          (save-excursion
-            (goto-char (car region))
-            (when (looking-at (rx (* blank) (not (any blank "\n"))))
-              (puni--reindent-region (car region)
-                                     (progn (puni-strict-forward-sexp)
-                                            (point))
-                                     col-after-region
-                                     'no-recalculate))))))))
+        (puni-soft-delete from to 'strict-sexp 'beyond 'kill)))))
 
 ;;;;; Force delete
 
