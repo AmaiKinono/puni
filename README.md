@@ -274,7 +274,7 @@ Puni lacks some commands that smartparens has. But the advantages are:
    languages:
 
    ```elisp
-   (dolist (hook '(prog-mode sgml-mode nxml-mode tex-mode))
+   (dolist (hook '(prog-mode-hook sgml-mode-hook nxml-mode-hook tex-mode-hook))
      (add-hook hook #'puni-mode))
    ```
 
@@ -294,9 +294,7 @@ Here are 2 configuration examples using `use-package`:
 ;; Use puni-mode only for certain major modes.
 (use-package puni
   :defer t
-  :init
-  (dolist (hook '(prog-mode sgml-mode nxml-mode tex-mode))
-    (add-hook hook #'puni-mode)))
+  :hook ((prog-mode sgml-mode nxml-mode tex-mode) . puni-mode))
 ```
 
 ## Commands
