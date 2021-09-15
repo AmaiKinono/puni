@@ -415,7 +415,7 @@ Return the point if success."
 ;;;;; Basic move: sexp
 
 ;; In this section, we build necessary components for the final
-;; `puni--strict-forward/backward-sexp' functions.
+;; `puni-strict-forward/backward-sexp' functions.
 
 (defun puni--forward-same-char-and-syntax (&optional bound)
   "Move forward consecutive same chars with same syntax.
@@ -439,16 +439,29 @@ Return the point if success, otherwise return nil."
       (goto-char (max char-bound syntax-bound)))))
 
 (defun puni--forward-syntax-block ()
-  "Move forward a symbol, string or chars with the same syntax.
+  "Move forward a syntax block.
+Moving forward the following things are tried in turn:
+
+- a symbol
+- a string
+- a pair of parentheses (defined by the syntax table).
+- chars with the same syntax.
+
 Return the point if success, otherwise return nil."
   (or (puni--forward-symbol)
       (puni--forward-string)
+      (when (eq (puni--syntax-char-after) ?\()
+        (let ((forward-sexp-function nil))
+          (puni--primitive-forward-sexp)))
       (puni--forward-same-char-and-syntax)))
 
 (defun puni--backward-syntax-block ()
   "Backward version of `puni--forward-syntax-block'."
   (or (puni--backward-symbol)
       (puni--backward-string)
+      (when (eq (puni--syntax-char-after (1- (point))) ?\()
+        (let ((forward-sexp-function nil))
+          (puni--primitive-backward-sexp)))
       (puni--backward-same-char-and-syntax)))
 
 (defun puni--forward-sexp-wrapper (&optional n)
@@ -726,9 +739,12 @@ and error \"Not in a THING\"."
       (if (eq pos to)
           (goto-char to)
         ;; If that's not the case, that means we jumped out of the thing by
-        ;; `forward-sexp'. This happens in strings with only puncts and blanks
-        ;; in it.  When this happens, we go forward one syntax block while
-        ;; keeping in the thing.
+        ;; `forward-sexp'.  Try `forward-sexp' in:
+        ;;
+        ;;     "| " ""
+        ;;
+        ;; When this happens, we go forward one syntax block while keeping in
+        ;; the thing.
         (let (goal)
           (save-excursion
             (puni--forward-syntax-block)
