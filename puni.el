@@ -391,7 +391,7 @@ Return the point if success."
     (save-excursion
       (while (and (puni--begin-of-single-line-comment-p)
                   (progn (forward-line)
-                         (beginning-of-line)
+                         (unless (eobp) (beginning-of-line))
                          (puni--forward-syntax " ")
                          t)))
       (unless (eq from (point))
@@ -1527,7 +1527,7 @@ This respects the variable `kill-whole-line'."
         (puni-kill-line (- n))
       (unless (eq n 0)
         (setq to (save-excursion (forward-line (if n (- n) -1))
-                                 (end-of-line)
+                                 (unless (bobp) (end-of-line))
                                  (point)))
         (unless (or kill-whole-line
                     n
