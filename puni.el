@@ -1473,7 +1473,9 @@ This respects the variable `kill-whole-line'."
                   n
                   ;; This means we started from the end of a line, and the
                   ;; following newline char should be killed.
-                  (eq to (1+ from)))
+                  (eq to (1+ from))
+                  (save-excursion (goto-char to)
+                                  (and (eobp) (eolp))))
         (setq to (1- to)))
       (when (looking-at (rx (* blank)))
         (setq col-after-spaces-in-line
@@ -1505,7 +1507,9 @@ This respects the variable `kill-whole-line'."
                                  (point)))
         (unless (or kill-whole-line
                     n
-                    (eq to (1- from)))
+                    (eq to (1- from))
+                    (save-excursion (goto-char to)
+                                    (and (bobp) (bolp))))
           (setq to (1+ to)))
         (puni-soft-delete from to 'strict-sexp 'beyond 'kill)))))
 
