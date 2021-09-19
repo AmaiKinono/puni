@@ -302,7 +302,8 @@ Return the point if success, otherwise return nil."
         after-quote to)
     (save-excursion
       (when (progn (puni--forward-syntax "\\")
-                   (puni--forward-syntax "\""))
+                   (or (puni--forward-syntax "\"")
+                       (puni--forward-syntax "|")))
         (setq after-quote (point))
         ;; The default `forward-sexp' could jump over a string.
         ;; `forward-sexp-function' from the major-mode sometimes doesn't, when
@@ -322,7 +323,8 @@ Return the point if success, otherwise return nil."
   (let ((from (point))
         before-quote to)
     (save-excursion
-      (when (puni--backward-syntax "\"")
+      (when (or (puni--backward-syntax "\"")
+                (puni--backward-syntax "|"))
         (setq before-quote (point))
         (let ((forward-sexp-function nil))
           (goto-char from)
