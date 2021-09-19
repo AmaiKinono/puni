@@ -365,13 +365,14 @@ Return the point if success."
 ;; interactive `puni-forward/backward-sexp' commands.
 
 (defun puni--begin-of-single-line-comment-p ()
-  "Return t if point is at the opening delimiter of a single line comment.
-Doesn't work on a single-line comment at the end of buffer, and
-there's no trailing newline."
+  "Return t if point is at the opening delimiter of a single line comment."
   (save-excursion
     (and (not (puni--forward-blanks))
          (puni--forward-comment-block)
-         (eq (char-before) ?\n))))
+         (or (eq (char-before) ?\n)
+             (and (eobp)
+                  (not (memq (puni--syntax-char-after (1- (point)))
+                             '(?> ?!))))))))
 
 (defun puni--end-of-single-line-comment-p ()
   "Return t if point is after the end delimiter of a single line comment.
