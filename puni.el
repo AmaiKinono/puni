@@ -444,27 +444,34 @@ Return the point if success, otherwise return nil."
   "Move forward a syntax block.
 Moving forward the following things are tried in turn:
 
-- a symbol
-- a string
-- a pair of parentheses (defined by the syntax table).
-- chars with the same syntax.
+- a symbol, string, or comment block
+- a pair of parentheses (defined by the syntax table)
+- a punctuation forward (if there is one)
+- chars with the same syntax
 
 Return the point if success, otherwise return nil."
-  (or (puni--forward-symbol)
-      (puni--forward-string)
-      (when (eq (puni--syntax-char-after) ?\()
-        (let ((forward-sexp-function nil))
-          (puni--primitive-forward-sexp)))
-      (puni--forward-same-char-and-syntax)))
+  (let ((syntax-char (puni--syntax-char-after)))
+    (or (puni--forward-symbol)
+        (puni--forward-string)
+        (puni--forward-comment-block)
+        (when (memq syntax-char '(?\( ?$))
+          (let ((forward-sexp-function nil))
+            (puni--primitive-forward-sexp)))
+        (when (eq syntax-char ?.)
+          (progn (forward-char) (point)))
+        (puni--forward-same-char-and-syntax))))
 
 (defun puni--backward-syntax-block ()
   "Backward version of `puni--forward-syntax-block'."
-  (or (puni--backward-symbol)
-      (puni--backward-string)
-      (when (eq (puni--syntax-char-after (1- (point))) ?\()
-        (let ((forward-sexp-function nil))
-          (puni--primitive-backward-sexp)))
-      (puni--backward-same-char-and-syntax)))
+  (let ((syntax-char (puni--syntax-char-after (1- (point)))))
+    (or (puni--backward-symbol)
+        (puni--backward-string)
+        (when (memq syntax-char '(?\) ?$))
+          (let ((forward-sexp-function nil))
+            (puni--primitive-backward-sexp)))
+        (when (eq syntax-char ?.)
+          (progn (forward-char -1) (point)))
+        (puni--backward-same-char-and-syntax))))
 
 (defun puni--forward-sexp-wrapper (&optional n)
   "A wrapper around `forward-sexp'.
@@ -614,11 +621,12 @@ Please report relevant part of the buffer, with the location of these points"
              (no-sexp-forward-handler
               (lambda ()
                 (unless (eobp)
-                  (let ((next-char (1+ (point))))
+                  (let ((after-syntax-block (save-excursion
+                                              (puni--forward-syntax-block))))
                     (save-excursion
-                      (goto-char next-char)
+                      (goto-char after-syntax-block)
                       (when (eq (puni--strict-primitive-backward-sexp) beg)
-                        (setq end next-char))))))))
+                        (setq end after-syntax-block))))))))
     (save-excursion
       (setq beg (point))
       (setq end (puni--primitive-forward-sexp))
