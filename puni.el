@@ -826,20 +826,8 @@ considered as in the comment."
 
 (defun puni-strict-backward-sexp-in-comment ()
   "Backward version of `puni-strict-forward-sexp-in-comment'."
-  (let (to)
-    (or
-     (puni--strict-primitive-backward-sexp-in-thing #'puni--in-comment-p
-                                                    "comment")
-     ;; If moving backward a sexp takes us out of the comment, but we reach the
-     ;; beginning of a single line comment, we accept it as it's common to
-     ;; delete the opening delimiters of a single line comment.  Also notice
-     ;; that the last form has already confirmed we are actually in a comment.
-     (progn
-       (save-excursion
-         (puni--strict-primitive-backward-sexp)
-         (when (puni--begin-of-single-line-comment-p)
-           (setq to (point))))
-       (when to (goto-char to))))))
+  (puni--strict-primitive-backward-sexp-in-thing #'puni--in-comment-p
+                                                 "comment"))
 
 ;;;;; Indent
 
@@ -1030,17 +1018,17 @@ consecutive single-line comments as a comment block.  Otherwise
 move one comment line a time."
   (let ((from (point)))
     (puni--forward-blanks)
-    (cond
-     ;; `puni--in-comment-p' doesn't consert a point inside the
-     ;; (multichar) comment quote as in the comment, but this is fine as
-     ;; when a user is deleting things with the point at there, they
-     ;; probably want to break the balanced comment quotes.
-     ((puni--in-comment-p) (puni-strict-forward-sexp-in-comment))
-     ((puni--in-string-p) (puni-strict-forward-sexp-in-string))
-     (t (or (when skip-single-line-comments
-              (puni--forward-consecutive-single-line-comments))
-            (puni--forward-comment-block)
-            (puni--strict-primitive-forward-sexp))))
+    (or (when skip-single-line-comments
+          (puni--forward-consecutive-single-line-comments))
+        (puni--forward-comment-block)
+        (cond
+         ;; `puni--in-comment-p' doesn't consider a point inside the
+         ;; (multichar) comment quote as in the comment, but this is fine as
+         ;; when a user is deleting things with the point at there, they
+         ;; probably want to break the balanced comment quotes.
+         ((puni--in-comment-p) (puni-strict-forward-sexp-in-comment))
+         ((puni--in-string-p) (puni-strict-forward-sexp-in-string))
+         (t (puni--strict-primitive-forward-sexp))))
     (let ((to (point)))
       (unless (eq from to) to))))
 
@@ -1050,22 +1038,29 @@ move one comment line a time."
     ;; If we `puni--backward-blanks' first, we can't tell if the point is after
     ;; the end of a single line comment, as it takes us before the ending
     ;; newline char of the comment, which is the closing comment delimiter.
-    (if (progn
-          (puni--backward-syntax " ")
-          (puni--end-of-single-line-comment-p))
+    (if (progn (puni--backward-syntax " ")
+               (puni--end-of-single-line-comment-p))
         (if skip-single-line-comments
             (puni--backward-consecutive-single-line-comments)
           (puni--backward-comment-block))
       (puni--backward-blanks)
-      (cond
-       ((puni--in-comment-p) (puni-strict-backward-sexp-in-comment))
-       ((puni--in-string-p) (puni-strict-backward-sexp-in-string))
-       (t (or (when skip-single-line-comments
-                (puni--backward-consecutive-single-line-comments))
-              (puni--backward-comment-block)
-              (puni--strict-primitive-backward-sexp)))))
+      (or (puni--backward-comment-block)
+          (cond
+           ((puni--in-comment-p) (puni-strict-backward-sexp-in-comment))
+           ((puni--in-string-p) (puni-strict-backward-sexp-in-string))
+           (t (puni--strict-primitive-backward-sexp)))))
     (let ((to (point)))
       (unless (eq from to) to))))
+
+(defun puni-strict-backward-sexp-or-single-line-comment-quotes ()
+  "Move backward a sexp or open quotes of single line comment.
+Return the point if success, otherwise return nil."
+  (or (puni-strict-backward-sexp)
+      (when (and (not (bobp))
+                 (save-excursion
+                   (forward-char -1)
+                   (puni--begin-of-single-line-comment-p)))
+        (puni--backward-same-char))))
 
 (defun puni-beginning-of-list-around-point ()
   "Go to the beginning of the list around point.
@@ -1302,9 +1297,10 @@ but return its beginning and end position in a cons cell."
                             #'puni--forward-symbol #'puni--backward-symbol))
            (move-blanks (if forward
                             #'puni--forward-blanks #'puni--backward-blanks))
-           (move-sexp (if forward
-                          #'puni-strict-forward-sexp
-                        #'puni-strict-backward-sexp))
+           (move-sexp
+            (if forward
+                #'puni-strict-forward-sexp
+              #'puni-strict-backward-sexp-or-single-line-comment-quotes))
            (move (lambda ()
                    (or (unless strict-sexp
                          (funcall move-symbol
@@ -1357,9 +1353,7 @@ but return its beginning and end position in a cons cell."
             ('within (when-let ((goal (funcall within-goal)))
                        (funcall act-on-region from goal)))
             ('precise (when (puni-region-balance-p from to strict-sexp)
-                        (if return-region
-                            (cons (min from to) (max from to))
-                          (puni-delete-region from to kill)))))
+                        (funcall act-on-region from to))))
           (funcall fail-act)))))
 
 (defun puni-soft-delete-by-move
