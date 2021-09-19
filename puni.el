@@ -300,39 +300,41 @@ If BOUND is non-nil, stop before BOUND."
 Return the point if success, otherwise return nil."
   (let ((from (point))
         after-quote to)
-    (save-excursion
-      (when (progn (puni--forward-syntax "\\")
-                   (or (puni--forward-syntax "\"")
-                       (puni--forward-syntax "|")))
-        (setq after-quote (point))
-        ;; The default `forward-sexp' could jump over a string.
-        ;; `forward-sexp-function' from the major-mode sometimes doesn't, when
-        ;; they jump to the end of a further delimiter.
-        (let ((forward-sexp-function nil))
-          (goto-char from)
-          (or (puni--primitive-forward-sexp)
-              ;; This happens when there's no closing quote. In this situation,
-              ;; it's safe to delete the opening quote.
-              (goto-char after-quote)))
-        (setq to (point))))
-    (when (and to (not (eq from to)))
-      (goto-char to))))
+    (unless (puni--in-string-p)
+      (save-excursion
+        (when (progn (puni--forward-syntax "\\")
+                     (or (puni--forward-syntax "\"")
+                         (puni--forward-syntax "|")))
+          (setq after-quote (point))
+          ;; The default `forward-sexp' could jump over a string.
+          ;; `forward-sexp-function' from the major-mode sometimes doesn't,
+          ;; when they jump to the end of a further delimiter.
+          (let ((forward-sexp-function nil))
+            (goto-char from)
+            (or (puni--primitive-forward-sexp)
+                ;; This happens when there's no closing quote. In this
+                ;; situation, it's safe to delete the opening quote.
+                (goto-char after-quote)))
+          (setq to (point))))
+      (when (and to (not (eq from to)))
+        (goto-char to)))))
 
 (defun puni--backward-string ()
   "Backward version of `puni--forward-string'."
   (let ((from (point))
         before-quote to)
-    (save-excursion
-      (when (or (puni--backward-syntax "\"")
-                (puni--backward-syntax "|"))
-        (setq before-quote (point))
-        (let ((forward-sexp-function nil))
-          (goto-char from)
-          (or (puni--primitive-backward-sexp)
-              (goto-char before-quote)))
-        (setq to (point))))
-    (when (and to (not (eq from to)))
-      (goto-char to))))
+    (unless (puni--in-string-p)
+      (save-excursion
+        (when (or (puni--backward-syntax "\"")
+                  (puni--backward-syntax "|"))
+          (setq before-quote (point))
+          (let ((forward-sexp-function nil))
+            (goto-char from)
+            (or (puni--primitive-backward-sexp)
+                (goto-char before-quote)))
+          (setq to (point))))
+      (when (and to (not (eq from to)))
+        (goto-char to)))))
 
 ;;;;; Basic move: comment
 
