@@ -602,70 +602,81 @@ Please report relevant part of the buffer, with the location of these points"
                   (setq end nil))))
              (skipped-part-handler
               (lambda ()
-                (setq end (save-excursion
-                            (goto-char beg)
-                            (puni--forward-syntax-block)))))
+                (setq end (save-excursion (puni--forward-syntax-block)))))
              (inside-sexp-handler
               (lambda ()
                 (if (puni--inside-delim-p beg beg-of-maybe-another-sexp end
                                           'forward)
                     (setq end nil)
-                  (setq end (save-excursion (puni--forward-syntax-block)))))))
+                  (setq end (save-excursion (puni--forward-syntax-block))))))
+             (no-sexp-forward-handler
+              (lambda ()
+                (unless (eobp)
+                  (let ((next-char (1+ (point))))
+                    (save-excursion
+                      (goto-char next-char)
+                      (when (eq (puni--strict-primitive-backward-sexp) beg)
+                        (setq end next-char))))))))
     (save-excursion
       (setq beg (point))
       (setq end (puni--primitive-forward-sexp))
       (setq beg-of-maybe-another-sexp (puni--primitive-backward-sexp))
       (setq end-of-maybe-another-sexp (puni--primitive-forward-sexp)))
-    ;; Make sure we can actually go forward a sexp.  This also incidentally
-    ;; checks if the point is at the end of buffer.  Notice that
-    ;; beg/end-of-maybe-another-sexp shouldn't be nil if end is non-nil, unless
-    ;; we are using a `forward-sexp-function' that really doesn't work.
-    (when (and beg end beg-of-maybe-another-sexp end-of-maybe-another-sexp)
+    (cond
+     ((null end)
+      ;; `forward-sexp' thinks there's no sexp forward, but it can be wrong
+      ;; when a punctuation is forward, and there's no sexp after that punct,
+      ;; e.g., in `c-mode':
+      ;;
+      ;;     { foo|; }          // Call `forward-sexp'
+      (funcall no-sexp-forward-handler))
+     ((or (null beg-of-maybe-another-sexp)
+          (null end-of-maybe-another-sexp))
+      (funcall unhandled-branch-handler))
+     ((< beg-of-maybe-another-sexp beg)
       (cond
-       ((< beg-of-maybe-another-sexp beg)
-        (cond
-         ;; Try:
-         ;;
-         ;;     foo bar |.        (forward -> backward -> forward sexp)
-         ;;
-         ;; The cause is "." is completely ignored when searching for the bound
-         ;; of a sexp.  This is seen more clear when there are other words and
-         ;; puncts after ".".  If this happens, we consider the syntax block at
-         ;; the beginning of the ignored part a sexp.
-         ((<= end-of-maybe-another-sexp beg)
-          (funcall skipped-part-handler))
-         ;; Shouldn't happen.
-         ((< beg end-of-maybe-another-sexp end)
-          (funcall unhandled-branch-handler))
-         ;; This means the part between beg-of-maybe-another-sexp and end is a
-         ;; sexp.  e.g.:
-         ;;
-         ;;     <p|>something</p>
-         ;;
-         ;; or
-         ;;
-         ;;     <p>something|</p>
-         ;;
-         ;; We should also consider the situation where BEG is after a
-         ;; expression prefix:
-         ;;
-         ;;     '|()
-         ;;
-         ;; For this we don't need to anything.
-         ((>= end-of-maybe-another-sexp end)
-          (unless (save-excursion
-                    (goto-char beg-of-maybe-another-sexp)
-                    (puni--forward-syntax "'" beg))
-            (funcall inside-sexp-handler)))))
-       ;; This means there's a sexp between BEG and END.  That's perfect, we
-       ;; don't need to do anything more.
-       ((eq beg-of-maybe-another-sexp beg) nil)
-       ;; (> beg-of-maybe-another-sexp beg).  e.g.,
+       ;; Try:
        ;;
-       ;;     bar|. foo
-       (t
-        (funcall skipped-part-handler)))
-      (when end (goto-char end)))))
+       ;;     foo bar |.        (forward -> backward -> forward sexp)
+       ;;
+       ;; The cause is "." is completely ignored when searching for the bound
+       ;; of a sexp.  This is seen more clear when there are other words and
+       ;; puncts after ".".  If this happens, we consider the syntax block at
+       ;; the beginning of the ignored part a sexp.
+       ((<= end-of-maybe-another-sexp beg)
+        (funcall skipped-part-handler))
+       ;; Shouldn't happen.
+       ((< beg end-of-maybe-another-sexp end)
+        (funcall unhandled-branch-handler))
+       ;; This means the part between beg-of-maybe-another-sexp and end is a
+       ;; sexp.  e.g.:
+       ;;
+       ;;     <p|>something</p>
+       ;;
+       ;; or
+       ;;
+       ;;     <p>something|</p>
+       ;;
+       ;; We should also consider the situation where BEG is after a
+       ;; expression prefix:
+       ;;
+       ;;     '|()
+       ;;
+       ;; For this we don't need to anything.
+       ((>= end-of-maybe-another-sexp end)
+        (unless (save-excursion
+                  (goto-char beg-of-maybe-another-sexp)
+                  (puni--forward-syntax "'" beg))
+          (funcall inside-sexp-handler)))))
+     ;; This means there's a sexp between BEG and END.  That's perfect, we
+     ;; don't need to do anything more.
+     ((eq beg-of-maybe-another-sexp beg) nil)
+     ;; (> beg-of-maybe-another-sexp beg).  e.g.,
+     ;;
+     ;;     bar|. foo
+     (t
+      (funcall skipped-part-handler)))
+    (when end (goto-char end))))
 
 (defun puni--strict-primitive-backward-sexp ()
   "Backward version of `puni--strict-primitive-forward-sexp'."
