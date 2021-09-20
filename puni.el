@@ -1310,11 +1310,19 @@ but return its beginning and end position in a cons cell."
            (within-p (if forward
                          (lambda () (< (point) to))
                        (lambda () (> (point) to))))
+           ;; This is useful when we go forward a single line comment, and
+           ;; reach after the newline, but we don't want to delete that newline
+           ;; char.
+           (fix-blanks (lambda ()
+                         (if forward
+                             (and (> (point) to) (puni--backward-blanks to))
+                           (and (< (point) to) (puni--forward-blanks to)))))
            (beyond-goal (lambda ()
                           (let ((goal (save-excursion
                                         (goto-char from)
                                         (while (and (funcall within-p)
                                                     (funcall move)))
+                                        (funcall fix-blanks)
                                         (point))))
                             (when (and goal (not (eq from goal))) goal))))
            (within-goal (lambda ()
@@ -1324,7 +1332,8 @@ but return its beginning and end position in a cons cell."
                                     (goto-char from)
                                     (while (and (funcall within-p)
                                                 (setq prev-goal (point))
-                                                (funcall move)))
+                                                (funcall move)
+                                                (funcall fix-blanks)))
                                     prev-goal)))
                             (when (and goal (not (eq from goal)))
                               goal))))
