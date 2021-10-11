@@ -1018,17 +1018,17 @@ consecutive single-line comments as a comment block.  Otherwise
 move one comment line a time."
   (let ((from (point)))
     (puni--forward-blanks)
-    (or (when skip-single-line-comments
-          (puni--forward-consecutive-single-line-comments))
-        (puni--forward-comment-block)
-        (cond
-         ;; `puni--in-comment-p' doesn't consider a point inside the
-         ;; (multichar) comment quote as in the comment, but this is fine as
-         ;; when a user is deleting things with the point at there, they
-         ;; probably want to break the balanced comment quotes.
-         ((puni--in-comment-p) (puni-strict-forward-sexp-in-comment))
-         ((puni--in-string-p) (puni-strict-forward-sexp-in-string))
-         (t (puni--strict-primitive-forward-sexp))))
+    (cond
+     ;; `puni--in-comment-p' doesn't consider a point inside the
+     ;; (multichar) comment quote as in the comment, but this is fine as
+     ;; when a user is deleting things with the point at there, they
+     ;; probably want to break the balanced comment quotes.
+     ((puni--in-comment-p) (puni-strict-forward-sexp-in-comment))
+     ((puni--in-string-p) (puni-strict-forward-sexp-in-string))
+     (t (or (when skip-single-line-comments
+              (puni--forward-consecutive-single-line-comments))
+            (puni--forward-comment-block)
+            (puni--strict-primitive-forward-sexp))))
     (let ((to (point)))
       (unless (eq from to) to))))
 
@@ -1044,11 +1044,11 @@ move one comment line a time."
             (puni--backward-consecutive-single-line-comments)
           (puni--backward-comment-block))
       (puni--backward-blanks)
-      (or (puni--backward-comment-block)
-          (cond
-           ((puni--in-comment-p) (puni-strict-backward-sexp-in-comment))
-           ((puni--in-string-p) (puni-strict-backward-sexp-in-string))
-           (t (puni--strict-primitive-backward-sexp)))))
+      (cond
+       ((puni--in-comment-p) (puni-strict-backward-sexp-in-comment))
+       ((puni--in-string-p) (puni-strict-backward-sexp-in-string))
+       (t (or (puni--backward-comment-block)
+              (puni--strict-primitive-backward-sexp)))))
     (let ((to (point)))
       (unless (eq from to) to))))
 
