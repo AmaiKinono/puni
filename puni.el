@@ -129,6 +129,31 @@ For the meaning of the returned char, see `modify-syntax-entry'."
                 (>= point (point-max)))
       (puni--syntax-class-to-char (syntax-class (syntax-after point))))))
 
+;;;;; Helpers
+
+(defun puni--move-within (action limit)
+  "Call ACTION.  Return t if it moves within LIMIT, otherwise return nil.
+ACTION is a function that moves the point.  LIMIT should be a
+position after point if ACTION moves forward, or a position
+before point if ACTION moves backward.
+
+When ACTION moves within LIMIT, return t.  Otherwise go back to
+the start and return nil.
+
+When LIMIT is nil, simply call ACTION."
+  (if (null limit)
+      (funcall action)
+    (let ((from (point))
+          (to (progn (funcall action) (point))))
+      (cond
+       ((> to from) (if (<= to limit) t
+                      (goto-char from)
+                      nil))
+       ((< to from) (if (>= to limit) t
+                      (goto-char from)
+                      nil))
+       (t nil)))))
+
 ;;;;; Basic move: blank
 
 ;; NOTE: ALl "basic moves" (take those move forward as example), except those
@@ -443,7 +468,7 @@ Return the point if success, otherwise return nil."
     (when (and char-bound syntax-bound)
       (goto-char (max char-bound syntax-bound)))))
 
-(defun puni--forward-syntax-block ()
+(defun puni--forward-syntax-block (&optional limit)
   "Move forward a syntax block.
 Moving forward the following things are tried in turn:
 
@@ -452,29 +477,38 @@ Moving forward the following things are tried in turn:
 - a punctuation forward (if there is one)
 - chars with the same syntax
 
-Return the point if success, otherwise return nil."
+Return the point if success, otherwise return nil.
+
+When LIMIT is non-nil, and there are multiple syntax constructs
+after point, choose one that ends before LIMIT.  One example is:
+
+    \"|;\"
+
+Emacs thinks there's a comment after the point to the line end.
+But when we move inside the string, we want to move forward the
+\";\"."
   (let ((syntax-char (puni--syntax-char-after)))
-    (or (puni--forward-symbol)
-        (puni--forward-string)
-        (puni--forward-comment-block)
+    (or (puni--move-within #'puni--forward-symbol limit)
+        (puni--move-within #'puni--forward-string limit)
+        (puni--move-within #'puni--forward-comment-block limit)
         (when (memq syntax-char '(?\( ?$))
           (let ((forward-sexp-function nil))
-            (puni--primitive-forward-sexp)))
+            (puni--move-within #'puni--primitive-forward-sexp limit)))
         (when (eq syntax-char ?.)
           (progn (forward-char) (point)))
-        (puni--forward-same-char-and-syntax))))
+        (puni--move-within #'puni--forward-same-char-and-syntax limit))))
 
-(defun puni--backward-syntax-block ()
+(defun puni--backward-syntax-block (&optional limit)
   "Backward version of `puni--forward-syntax-block'."
   (let ((syntax-char (puni--syntax-char-after (1- (point)))))
-    (or (puni--backward-symbol)
-        (puni--backward-string)
+    (or (puni--move-within #'puni--backward-symbol limit)
+        (puni--move-within #'puni--backward-string limit)
         (when (memq syntax-char '(?\) ?$))
           (let ((forward-sexp-function nil))
-            (puni--primitive-backward-sexp)))
+            (puni--move-within #'puni--primitive-backward-sexp limit)))
         (when (eq syntax-char ?.)
           (progn (forward-char -1) (point)))
-        (puni--backward-same-char-and-syntax))))
+        (puni--move-within #'puni--backward-same-char-and-syntax limit))))
 
 (defun puni--forward-sexp-wrapper (&optional n)
   "A wrapper around `forward-sexp'.
@@ -771,7 +805,7 @@ and error \"Not in a THING\"."
         ;; the thing.
         (let (goal)
           (save-excursion
-            (puni--forward-syntax-block)
+            (puni--forward-syntax-block pos)
             (when (funcall probe)
               (setq goal (point))))
           (when goal (goto-char goal)))))))
@@ -792,7 +826,7 @@ and error \"Not in a THING\"."
           (goto-char to)
         (let (goal)
           (save-excursion
-            (puni--backward-syntax-block)
+            (puni--backward-syntax-block pos)
             (when (funcall probe)
               (setq goal (point))))
           (when goal (goto-char goal)))))))
