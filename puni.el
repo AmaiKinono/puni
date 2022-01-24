@@ -1259,6 +1259,24 @@ symbol delimiters differently."
                 (cl-return t))
             (cl-return nil)))))))
 
+(defun puni-dangling-delimiter-p (&optional point)
+  "Return t if the char at POINT is a dangling delimiter.
+A dangling delimiter is a single char opening/closing delimiter
+that doesn't have a matched delimiter.
+
+When POINT is nil, see if the char at point is a dangling
+delimiter."
+  (let ((point (or point (point))))
+    (unless (or (< point (point-min))
+                (>= point (point-max)))
+      (save-excursion
+        (and (progn (goto-char point)
+                    (not (save-excursion
+                           (puni-strict-forward-sexp))))
+             (progn (goto-char (1+ point))
+                    (not (save-excursion
+                           (puni-strict-backward-sexp)))))))))
+
 ;;;;; API: Deletion
 
 (defun puni-delete-region (pt1 pt2 &optional kill)
@@ -1461,8 +1479,12 @@ This respects the variable `delete-active-region'."
         (puni-delete-active-region))
     (if (< n 0) (puni-forward-delete-char (- n))
       (dotimes (_ n)
-        (puni-soft-delete-by-move #'backward-char nil nil nil
-                                  'jump-and-reverse-delete)))))
+        (or (puni-soft-delete-by-move #'backward-char nil nil nil
+                                      'jump-and-reverse-delete)
+            ;; Even if `puni-soft-delete-by-move' doesn't delete anything, we
+            ;; are already before the char before point.
+            (when (puni-dangling-delimiter-p)
+              (delete-char 1)))))))
 
 ;;;###autoload
 (defun puni-forward-delete-char (&optional n)
@@ -1481,8 +1503,10 @@ This respects the variable `delete-active-region'."
         (puni-delete-active-region))
     (if (< n 0) (puni-backward-delete-char (- n))
       (dotimes (_ n)
-        (puni-soft-delete-by-move #'forward-char nil nil nil
-                                  'jump-and-reverse-delete)))))
+        (or (puni-soft-delete-by-move #'forward-char nil nil nil
+                                      'jump-and-reverse-delete)
+            (when (puni-dangling-delimiter-p (1- (point)))
+              (delete-char -1)))))))
 
 ;;;;; Word
 
