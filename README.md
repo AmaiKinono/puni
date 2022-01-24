@@ -243,6 +243,9 @@ Puni lacks some commands that smartparens has. But the advantages are:
 
 ## Quick start
 
+You can install `puni` from [MELPA](https://melpa.org/). Below are instructions
+to manually install Puni.
+
 1. Clone this repository:
 
    ```
