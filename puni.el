@@ -1479,7 +1479,10 @@ This respects the variable `delete-active-region'."
         (puni-delete-active-region))
     (if (< n 0) (puni-forward-delete-char (- n))
       (dotimes (_ n)
-        (or (puni-soft-delete-by-move #'backward-char nil nil nil
+        (or (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+              (when (= 2 (- (cdr sexp-bounds) (car sexp-bounds)))
+                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+            (puni-soft-delete-by-move #'backward-char nil nil nil
                                       'jump-and-reverse-delete)
             ;; Even if `puni-soft-delete-by-move' doesn't delete anything, we
             ;; are already before the char before point.
