@@ -1479,15 +1479,21 @@ This respects the variable `delete-active-region'."
         (puni-delete-active-region))
     (if (< n 0) (puni-forward-delete-char (- n))
       (dotimes (_ n)
-        (or (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
-              (when (= 2 (- (cdr sexp-bounds) (car sexp-bounds)))
-                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
-            (puni-soft-delete-by-move #'backward-char nil nil nil
-                                      'jump-and-reverse-delete)
-            ;; Even if `puni-soft-delete-by-move' doesn't delete anything, we
-            ;; are already before the char before point.
-            (when (puni-dangling-delimiter-p)
-              (delete-char 1)))))))
+        (or
+         (puni-soft-delete-by-move #'backward-char)
+         ;; Try to delete a dangling delimiter.  We want to handle this before
+         ;; the empty sexp case (see below), since if there's a dangling
+         ;; delimiter, `puni-bounds-of-sexp-around-point' can be laggy.
+         (when (puni-dangling-delimiter-p (1- (point)))
+           (delete-char -1)
+           t)
+         ;; Maybe we are inside an empty sexp, so we delete it.
+         (when-let ((list-bounds (puni-bounds-of-list-around-point))
+                    (sexp-bounds (puni-bounds-of-sexp-around-point)))
+           (when (eq (car list-bounds) (cdr list-bounds))
+             (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+         ;; Nothing can be deleted, move backward.
+         (forward-char -1))))))
 
 ;;;###autoload
 (defun puni-forward-delete-char (&optional n)
