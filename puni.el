@@ -1512,10 +1512,15 @@ This respects the variable `delete-active-region'."
         (puni-delete-active-region))
     (if (< n 0) (puni-backward-delete-char (- n))
       (dotimes (_ n)
-        (or (puni-soft-delete-by-move #'forward-char nil nil nil
-                                      'jump-and-reverse-delete)
-            (when (puni-dangling-delimiter-p (1- (point)))
-              (delete-char -1)))))))
+        (or (puni-soft-delete-by-move #'forward-char)
+            (when (puni-dangling-delimiter-p)
+              (delete-char 1)
+              t)
+            (when-let ((list-bounds (puni-bounds-of-list-around-point))
+                       (sexp-bounds (puni-bounds-of-sexp-around-point)))
+              (when (eq (car list-bounds) (cdr list-bounds))
+                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+            (forward-char 1))))))
 
 ;;;;; Word
 
