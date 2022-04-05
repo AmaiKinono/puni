@@ -1488,10 +1488,10 @@ This respects the variable `delete-active-region'."
            (delete-char -1)
            t)
          ;; Maybe we are inside an empty sexp, so we delete it.
-         (when-let ((list-bounds (puni-bounds-of-list-around-point))
-                    (sexp-bounds (puni-bounds-of-sexp-around-point)))
+         (when-let ((list-bounds (puni-bounds-of-list-around-point)))
            (when (eq (car list-bounds) (cdr list-bounds))
-             (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+             (let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+               (puni-delete-region (car sexp-bounds) (cdr sexp-bounds)))))
          ;; Nothing can be deleted, move backward.
          (forward-char -1))))))
 
@@ -1516,10 +1516,10 @@ This respects the variable `delete-active-region'."
             (when (puni-dangling-delimiter-p)
               (delete-char 1)
               t)
-            (when-let ((list-bounds (puni-bounds-of-list-around-point))
-                       (sexp-bounds (puni-bounds-of-sexp-around-point)))
+            (when-let ((list-bounds (puni-bounds-of-list-around-point)))
               (when (eq (car list-bounds) (cdr list-bounds))
-                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+                (let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+                  (puni-delete-region (car sexp-bounds) (cdr sexp-bounds)))))
             (forward-char 1))))))
 
 ;;;;; Word
