@@ -1121,6 +1121,16 @@ Return the point if the move succeeded."
         (goto-char (car bounds))
       (goto-char (cdr bounds)))))
 
+(defun puni-before-sexp-p ()
+  "See if point is before a sexp.
+If it is, return the end of that sexp, otherwise return nil."
+  (save-excursion (puni-strict-forward-sexp)))
+
+(defun puni-after-sexp-p ()
+  "See if point is after a sexp.
+If it is, return the end of that sexp, otherwise return nil."
+  (save-excursion (puni-strict-backward-sexp)))
+
 ;;;;; API: Bounds of sexp-related things
 
 (defun puni-bounds-of-sexp-at-point ()
@@ -1488,10 +1498,10 @@ This respects the variable `delete-active-region'."
            (delete-char -1)
            t)
          ;; Maybe we are inside an empty sexp, so we delete it.
-         (when-let ((list-bounds (puni-bounds-of-list-around-point)))
-           (when (eq (car list-bounds) (cdr list-bounds))
-             (let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
-               (puni-delete-region (car sexp-bounds) (cdr sexp-bounds)))))
+         (unless (or (puni-before-sexp-p)
+                     (puni-after-sexp-p))
+           (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+             (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
          ;; Nothing can be deleted, move backward.
          (forward-char -1))))))
 
@@ -1516,10 +1526,10 @@ This respects the variable `delete-active-region'."
             (when (puni-dangling-delimiter-p)
               (delete-char 1)
               t)
-            (when-let ((list-bounds (puni-bounds-of-list-around-point)))
-              (when (eq (car list-bounds) (cdr list-bounds))
-                (let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
-                  (puni-delete-region (car sexp-bounds) (cdr sexp-bounds)))))
+            (unless (or (puni-before-sexp-p)
+                        (puni-after-sexp-p))
+              (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
             (forward-char 1))))))
 
 ;;;;; Word
@@ -1806,34 +1816,34 @@ whole buffer is the list around point."
                              (funcall func))
              (save-excursion (goto-char (cdr orig-bounds))
                              (funcall func)))))
-         (bounds-of-sexp-at (funcall find-bigger-bounds
-                                     #'puni-bounds-of-sexp-at-point))
-         (bounds-of-list-around (funcall find-bigger-bounds
-                                         #'puni-bounds-of-list-around-point))
-         (bounds-of-sexp-around (funcall find-bigger-bounds
-                                         #'puni-bounds-of-sexp-around-point))
-         (bounds-of-outer-sexp
-          (when bounds-of-sexp-around
-            (puni--bigger-interval
-             (save-excursion (goto-char (car bounds-of-sexp-around))
-                             (puni-bounds-of-sexp-around-point))
-             (save-excursion (goto-char (cdr bounds-of-sexp-around))
-                             (puni-bounds-of-sexp-around-point)))))
-         (replace-mark (eq last-command this-command)))
-    ;; Don't select blanks around the list.
-    (when bounds-of-list-around
-      (save-excursion
-        (goto-char (car bounds-of-list-around))
-        (puni--forward-blanks (car orig-bounds))
-        (setf (car bounds-of-list-around) (point))
-        (goto-char (cdr bounds-of-list-around))
-        (puni--backward-blanks (cdr orig-bounds))
-        (setf (cdr bounds-of-list-around) (point))))
+         (bounds-of-sexp-at
+          (lambda ()
+            (funcall find-bigger-bounds #'puni-bounds-of-sexp-at-point)))
+         (bounds-of-list-around
+          (lambda ()
+            (when-let (bounds (funcall find-bigger-bounds
+                                       #'puni-bounds-of-list-around-point))
+              ;; Don't select blanks around the list.
+              (save-excursion
+                (goto-char (car bounds))
+                (puni--forward-blanks (car orig-bounds))
+                (setf (car bounds) (point))
+                (goto-char (cdr bounds))
+                (puni--backward-blanks (cdr orig-bounds))
+                (setf (cdr bounds) (point)))
+              bounds)))
+         (bounds-of-sexp-around
+          (lambda ()
+            (funcall find-bigger-bounds #'puni-bounds-of-sexp-around-point)))
+         (replace-mark (eq last-command this-command))
+         current-bounds)
     (unless
-        (cl-dolist (bounds (list bounds-of-sexp-at bounds-of-list-around
-                                 bounds-of-sexp-around bounds-of-outer-sexp))
-          (when (puni--interval-contain-p bounds orig-bounds)
-            (puni--mark-region (car bounds) (cdr bounds) nil replace-mark)
+        (cl-dolist (f (list bounds-of-sexp-at bounds-of-list-around
+                            bounds-of-sexp-around))
+          (setq current-bounds (funcall f))
+          (when (puni--interval-contain-p current-bounds orig-bounds)
+            (puni--mark-region (car current-bounds) (cdr current-bounds)
+                               nil replace-mark)
             (cl-return t)))
       (user-error "Active region is not balanced"))))
 
