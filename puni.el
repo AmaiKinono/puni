@@ -681,6 +681,18 @@ Please report relevant part of the buffer, with the location of these points"
           (null end-of-maybe-another-sexp))
       (funcall unhandled-branch-handler))
      ((< beg-of-maybe-another-sexp beg)
+      ;; Try this in `python-mode':
+      ;;
+      ;;     n|.
+      ;;     #        (forward -> backward -> forward sexp)
+      ;;
+      ;; The cause of this problem is not clear.  What I know is: "." is a
+      ;; punctuation, but is part of "n.", which is a sexp. The first jump
+      ;; forward ignores the punctuation and jumps to the end of sexp after it.
+      ;; The second jump forward jumps over the whole sexp "n.".  If this
+      ;; happens, we set the end of sexp at point to be after "s.".
+      (when (< beg end-of-maybe-another-sexp end)
+        (setq end end-of-maybe-another-sexp))
       (cond
        ;; Try:
        ;;
@@ -692,7 +704,7 @@ Please report relevant part of the buffer, with the location of these points"
        ;; the beginning of the ignored part a sexp.
        ((<= end-of-maybe-another-sexp beg)
         (funcall skipped-part-handler))
-       ;; Shouldn't happen.
+       ;; Shouldn't happen as we've handled it above.
        ((< beg end-of-maybe-another-sexp end)
         (funcall unhandled-branch-handler))
        ;; This means the part between beg-of-maybe-another-sexp and end is a
@@ -758,6 +770,8 @@ Please report relevant part of the buffer, with the location of these points"
     (when (and beg end beg-of-maybe-another-sexp end-of-maybe-another-sexp)
       (cond
        ((> end-of-maybe-another-sexp end)
+        (when (> end beg-of-maybe-another-sexp beg)
+          (setq beg beg-of-maybe-another-sexp))
         (cond
          ((>= beg-of-maybe-another-sexp end)
           (funcall skipped-part-handler))
