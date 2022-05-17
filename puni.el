@@ -1863,6 +1863,37 @@ whole buffer is the list around point."
 
 ;;;; Sexp manipulating commands
 
+;;;;; Internals
+
+(defun puni--strict-forward-sexp-until-line-end ()
+  "Move strict forward sexp until there's no sexp forward in the line.
+In other words, until there's only blanks between the point and
+the line end, or there's no sexp forward.  If that's the case at
+the beginning, don't move forward.
+
+Return the point if success, otherwise return nil."
+  (let (success-flag)
+    (while (and (not (looking-at (rx (* space) "\n")))
+                (puni-strict-forward-sexp)
+                (setq success-flag t)))
+    (when success-flag (point))))
+
+(defun puni--set-undo-position (&optional point)
+  "Call this in a command so that undoing the command moves cursor to POINT.
+When POINT is nil, the current cursor position is used."
+  (when (listp buffer-undo-list)
+    (push (or point (point)) buffer-undo-list)))
+
+(defun puni--point-marker (&optional point)
+  "Return the marker at POINT.
+If POINT isn"
+  (if point
+      (save-excursion (goto-char point)
+                      (point-marker))
+    (point-marker)))
+
+;;;;; Commands
+
 ;;;###autoload
 (defun puni-squeeze ()
   "Copy the list around point, and delete the sexp around point.
@@ -1890,8 +1921,23 @@ sexp around it."
 With positive prefix argument N, slurp that many sexps."
   (interactive "p")
   (setq n (or n 1))
-  (when-let* ((beg-of-delim (puni-end-pos-of-list-around-point))
+  (when-let* ((end-of-list (puni-end-pos-of-list-around-point))
+              ;; We let the "delimiter" include the blanks and newline chars
+              ;; before it, so keyword delimiters like "end" in
+              ;;
+              ;;     begin
+              ;;         ...
+              ;;     end
+              ;;     ...
+              ;;
+              ;; could be moved correctly.
+              (beg-of-delim (save-excursion
+                              (goto-char end-of-list)
+                              (puni--backward-blanks)
+                              (point)))
               (end-of-delim (puni-end-pos-of-sexp-around-point))
+              (delim-length (- end-of-delim beg-of-delim))
+              (delim-length-without-blanks (- end-of-delim end-of-list))
               (reindent-region-beg-column
                (puni--column-of-position end-of-delim))
               (end-of-sexp (save-excursion
@@ -1905,14 +1951,15 @@ With positive prefix argument N, slurp that many sexps."
                                (point))))
               (delim (buffer-substring beg-of-delim end-of-delim)))
     (save-excursion
+      (puni--set-undo-position)
       (goto-char end-of-sexp)
       (insert delim)
       (puni-delete-region beg-of-delim end-of-delim)
-      (puni--reindent-region beg-of-delim end-of-sexp
+      ;; Reindent the slurped sexps.
+      (puni--reindent-region beg-of-delim (- end-of-sexp delim-length)
                              reindent-region-beg-column)
       (pulse-momentary-highlight-region
-       (point) (- (point) (- end-of-delim beg-of-delim))
-       puni-blink-region-face)
+       (point) (- (point) delim-length-without-blanks) puni-blink-region-face)
       (setq deactivate-mark nil))))
 
 ;;;###autoload
@@ -1921,8 +1968,15 @@ With positive prefix argument N, slurp that many sexps."
 With positive prefix argument N, barf that many sexps."
   (interactive "p")
   (setq n (or n 1))
-  (when-let* ((beg-of-delim (puni-end-pos-of-list-around-point))
+  (when-let* ((from (point))
+              (end-of-list (puni-end-pos-of-list-around-point))
+              (beg-of-delim (save-excursion
+                              (goto-char end-of-list)
+                              (puni--backward-blanks)
+                              (point)))
               (end-of-delim (puni-end-pos-of-sexp-around-point))
+              (delim-length (- end-of-delim beg-of-delim))
+              (delim-length-without-blanks (- end-of-delim end-of-list))
               (beg-of-sexp (save-excursion
                              (goto-char beg-of-delim)
                              (cl-dotimes (_ n)
@@ -1935,17 +1989,21 @@ With positive prefix argument N, barf that many sexps."
               (reindent-region-beg-column
                (puni--column-of-position beg-of-sexp))
               (delim (buffer-substring beg-of-delim end-of-delim)))
-    (save-excursion
-      (puni-delete-region beg-of-delim end-of-delim)
-      (goto-char beg-of-sexp)
-      (insert delim)
-      (puni--reindent-region (+ beg-of-sexp (- end-of-delim beg-of-delim))
-                             end-of-delim
-                             reindent-region-beg-column)
-      (pulse-momentary-highlight-region
-       (point) (- (point) (- end-of-delim beg-of-delim))
-       puni-blink-region-face)
-      (setq deactivate-mark nil))))
+    (let (beg-of-moved-delim)
+      (save-excursion
+        (puni--set-undo-position)
+        (puni-delete-region beg-of-delim end-of-delim)
+        (goto-char beg-of-sexp)
+        (insert delim)
+        ;; Reindent the barfed out sexps.
+        (puni--reindent-region (+ beg-of-sexp delim-length) end-of-delim
+                               reindent-region-beg-column)
+        (setq beg-of-moved-delim (- (point) delim-length-without-blanks))
+        (pulse-momentary-highlight-region (point) beg-of-moved-delim
+                                          puni-blink-region-face)
+        (setq deactivate-mark nil))
+      (when (>= from beg-of-delim)
+        (goto-char beg-of-moved-delim)))))
 
 ;;;###autoload
 (defun puni-slurp-backward (&optional n)
@@ -1953,11 +2011,14 @@ With positive prefix argument N, barf that many sexps."
 With positive prefix argument N, slurp that many sexps."
   (interactive "p")
   (setq n (or n 1))
-  (when-let* ((end-of-delim (puni-beginning-pos-of-list-around-point))
-              (reindent-region-beg-column
-               (puni--column-of-position end-of-delim))
-              (bounds-around (puni-bounds-of-sexp-around-point))
-              (beg-of-delim (car bounds-around))
+  (when-let* ((beg-of-list (puni-beginning-pos-of-list-around-point))
+              (end-of-delim (save-excursion
+                              (goto-char beg-of-list)
+                              (puni--forward-blanks)
+                              (point)))
+              (beg-of-delim (puni-beginning-pos-of-sexp-around-point))
+              (delim-length (- end-of-delim beg-of-delim))
+              (delim-length-without-blanks (- beg-of-list beg-of-delim))
               (beg-of-sexp (save-excursion
                              (goto-char beg-of-delim)
                              (cl-dotimes (_ n)
@@ -1967,17 +2028,32 @@ With positive prefix argument N, slurp that many sexps."
                                    (cl-return)))
                              (when (not (eq (point) beg-of-delim))
                                (point))))
+              (sexp-beg-column (puni--column-of-position beg-of-sexp))
+              (beg-column-after-sexp (puni--column-of-position end-of-delim))
               (delim (buffer-substring beg-of-delim end-of-delim)))
-    (save-excursion
-      (puni-delete-region beg-of-delim end-of-delim)
-      (goto-char beg-of-sexp)
-      (insert delim)
-      (puni--reindent-region end-of-delim (cdr bounds-around)
-                             reindent-region-beg-column)
-      (pulse-momentary-highlight-region
-       (point) (- (point) (- end-of-delim beg-of-delim))
-       puni-blink-region-face)
-      (setq deactivate-mark nil))))
+    (let (moved-delim-beg-marker)
+      (save-excursion
+        (puni--set-undo-position)
+        (puni-delete-region beg-of-delim end-of-delim)
+        (goto-char beg-of-sexp)
+        (insert delim)
+        (setq moved-delim-beg-marker (puni--point-marker beg-of-sexp))
+        (goto-char end-of-delim)
+        ;; Reindent the slurped sexps.
+        (puni--reindent-region (+ beg-of-sexp delim-length) (point)
+                               sexp-beg-column)
+        ;; Reindent the sexps after the slurped sexps, as the indentation may
+        ;; be altered by the slurping.
+        (when-let ((following-sexps-end
+                    (save-excursion
+                      (puni--strict-forward-sexp-until-line-end))))
+          (puni--reindent-region (point) following-sexps-end
+                                 beg-column-after-sexp))
+        (pulse-momentary-highlight-region
+         moved-delim-beg-marker
+         (+ moved-delim-beg-marker delim-length-without-blanks)
+         puni-blink-region-face)
+        (setq deactivate-mark nil)))))
 
 ;;;###autoload
 (defun puni-barf-backward (&optional n)
@@ -1985,9 +2061,15 @@ With positive prefix argument N, slurp that many sexps."
 With positive prefix argument N, barf that many sexps."
   (interactive "p")
   (setq n (or n 1))
-  (when-let* ((end-of-delim (puni-beginning-pos-of-list-around-point))
-              (bounds-around (puni-bounds-of-sexp-around-point))
-              (beg-of-delim (car bounds-around))
+  (when-let* ((from (point))
+              (beg-of-list (puni-beginning-pos-of-list-around-point))
+              (end-of-delim (save-excursion
+                              (goto-char beg-of-list)
+                              (puni--forward-blanks)
+                              (point)))
+              (beg-of-delim (puni-beginning-pos-of-sexp-around-point))
+              (delim-length (- end-of-delim beg-of-delim))
+              (delim-length-without-blanks (- beg-of-list beg-of-delim))
               (end-of-sexp (save-excursion
                              (goto-char end-of-delim)
                              (cl-dotimes (_ n)
@@ -1997,20 +2079,36 @@ With positive prefix argument N, barf that many sexps."
                                           (puni--forward-comment-block))))
                              (when (not (eq (point) end-of-delim))
                                (point))))
-              (reindent-region-beg-column
+              (sexp-beg-column
+               (puni--column-of-position end-of-delim))
+              (beg-column-after-sexp
                (puni--column-of-position end-of-sexp))
               (delim (buffer-substring beg-of-delim end-of-delim)))
-    (save-excursion
-      (goto-char end-of-sexp)
-      (insert delim)
-      (puni-delete-region beg-of-delim end-of-delim)
-      (puni--reindent-region end-of-sexp
-                             (cdr bounds-around)
-                             reindent-region-beg-column)
-      (pulse-momentary-highlight-region
-       (point) (- (point) (- end-of-delim beg-of-delim))
-       puni-blink-region-face)
-      (setq deactivate-mark nil))))
+    (let (moved-delim-end-marker)
+      (save-excursion
+        (puni--set-undo-position)
+        (goto-char end-of-sexp)
+        (insert delim)
+        (setq moved-delim-end-marker
+              (puni--point-marker (+ end-of-sexp delim-length-without-blanks)))
+        (puni-delete-region beg-of-delim end-of-delim)
+        (goto-char (- end-of-sexp delim-length))
+        ;; Reindent barfed out sexps.
+        (puni--reindent-region beg-of-delim (point)
+                               sexp-beg-column)
+        ;; Reindent the sexps after the inserted delimiter, as the indentation
+        ;; may be altered by the barfing.
+        (when-let ((following-sexps-end
+                    (save-excursion
+                      (puni--strict-forward-sexp-until-line-end))))
+          (puni--reindent-region (+ (point) delim-length) following-sexps-end
+                                 beg-column-after-sexp))
+        (pulse-momentary-highlight-region
+         (- moved-delim-end-marker delim-length-without-blanks)
+         moved-delim-end-marker puni-blink-region-face)
+        (setq deactivate-mark nil))
+      (when (<= from end-of-sexp)
+        (goto-char moved-delim-end-marker)))))
 
 ;;;###autoload
 (defun puni-splice ()
