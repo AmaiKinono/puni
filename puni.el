@@ -71,6 +71,11 @@ Nil means use `pulse-highlight-start-face'."
                  (symbol :tag "Face"))
   :group 'puni)
 
+(defcustom puni-confirm-when-delete-unbalanced-active-region t
+  "Whether deleting unbalanced active regions needs confirmation."
+  :type 'boolean
+  :group 'puni)
+
 ;;;; Internals
 
 (defvar puni--debug nil
@@ -1458,12 +1463,15 @@ the meaning of STRICT-SEXP, STYLE, KILL and FAIL-ACTION."
 ;;;###autoload
 (defun puni-delete-active-region ()
   "Delete active region.
-When this will cause unbalanced state, ask the user to confirm."
+When this will cause unbalanced state, ask the user to confirm,
+unless `puni-confirm-when-delete-unbalanced-active-region' is
+nil."
   (interactive)
   (if (use-region-p)
       (let ((beg (region-beginning))
             (end (region-end)))
-        (when (or (puni-region-balance-p beg end)
+        (when (or (not puni-confirm-when-delete-unbalanced-active-region)
+                  (puni-region-balance-p beg end)
                   (y-or-n-p "Delete the region will cause unbalanced state.  \
 Continue? "))
           (puni-delete-region beg end)))
@@ -1472,12 +1480,14 @@ Continue? "))
 ;;;###autoload
 (defun puni-kill-active-region ()
   "Kill active region.
-When this will cause unbalanced state, ask the user to confirm."
+When this will cause unbalanced state, ask the user to confirm,
+unless `puni-confirm-when-delete-unbalanced-active-region'."
   (interactive)
   (if (use-region-p)
       (let ((beg (region-beginning))
             (end (region-end)))
-        (when (or (puni-region-balance-p beg end)
+        (when (or (not puni-confirm-when-delete-unbalanced-active-region)
+                  (puni-region-balance-p beg end)
                   (y-or-n-p "Delete the region will cause unbalanced state.  \
 Continue? "))
           (setq this-command 'kill-region)
