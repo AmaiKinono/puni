@@ -69,7 +69,7 @@
 Nil means use `pulse-highlight-start-face'."
   :type '(choice (const :tag "Default" nil)
                  (symbol :tag "Face"))
-  :group 'citre)
+  :group 'puni)
 
 ;;;; Internals
 
