@@ -1737,13 +1737,13 @@ can pop back to it."
   "Jump to next punctuation syntactically.
 This means:
 
-- When you doesn't start in a string or comment, jump over
+- When the point is outside of strings or comments, jump over
   strings/comments/symbols.
 - When there are consecutive same chars, go to the last one
   unless they have parentheses syntax.
 
 This command is designed to give you a \"syntactical navigating\"
-feel."
+feeling."
   (interactive)
   (let ((in-str-or-comment-p (or (puni--in-comment-p) (puni--in-string-p)))
         done)
@@ -1773,13 +1773,13 @@ feel."
   "Jump to previous punctuation syntactically.
 This means:
 
-- When you doesn't start in a string or comment, jump over
+- When the point is outside of strings or comments, jump over
   strings/comments/symbols.
 - When there are consecutive same chars, go to the last one
   unless they have parentheses syntax.
 
 This command is designed to give you a \"syntactical navigating\"
-feel."
+feeling."
   (interactive)
   (let ((in-str-or-comment-p (or (puni--in-comment-p) (puni--in-string-p)))
         done)

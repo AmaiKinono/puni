@@ -139,10 +139,10 @@ There are *absolutely no language-specific logic* inside Puni!
 
 Wait, it can't be! Or how does it support `web-mode` and `tex-mode`?
 
-Well, it turns out Emacs has a built-in function that knows what is a balanced
-expression (or, a sexp): `forward-sexp`. If we call `forward-sexp` until it
-throws an error, we know we've hit the boundary, so it's safe to delete until
-this position. Try this in some Lisp code:
+Well, it turns out that Emacs has a built-in function that knows what is a
+balanced expression (or, a sexp): `forward-sexp`. If we call `forward-sexp`
+until it throws an error, we know we've hit the boundary, so it's safe to
+delete until this position. Try this in some Lisp code:
 
 ```elisp
 (foo |bar)
@@ -173,12 +173,12 @@ Puni fixes the behavior of these `forward-sexp-functions` in a generic way, by:
 - Common sense
 
 So we get `puni-strict-forward-sexp` and `puni-strict-backward-sexp`. These are
-"strict" versions of the `forward-sexp` fucntion available in current major
+"strict" versions of the `forward-sexp` function available in current major
 mode, which means they move forward one sexp at a time, and stops at the
 boundary. This is the "ideal" `forward-sexp` function, and is the basis of all
 the commands offered by Puni.
 
-By taking this appraoch, Puni supports many major modes out of the box.
+By taking this approach, Puni supports many major modes out of the box.
 
 And that really is the whole story ;)
 
@@ -203,7 +203,7 @@ Puni's cons:
   `(` will also insert a space before it when proper. Puni doesn't do that.
 
 ParEdit could be mostly replaced by Puni. But if you are wondering if there are
-still more efficient way of editing Lisp code, maybe
+still more efficient ways of editing Lisp code, maybe
 [Lispy](https://github.com/abo-abo/lispy) is for you.
 
 Lispy is like ParEdit, with shorter (mostly single-key, without modifier)
@@ -212,8 +212,9 @@ faster to execute, and easier to combine to form complex operations. This
 keybinding design is the killer feature of Lispy.
 
 Lispy also offers much more commands than ParEdit, focusing on faster move,
-inline help, code evaluation, semantic transformation of Lisp code, etc. These
-features are implemented for Python, Julia, and several Lisp dialects.
+inline help, code evaluation, semantic transformation of Lisp code, etc. All or
+part of these features are implemented for Python, Julia, and several Lisp
+dialects.
 
 ### Smartparens
 
@@ -315,10 +316,15 @@ First we have some "delete by move" commands:
 | `puni-kill-line`            | `C-k`              |
 | `puni-backward-kill-line`   | `C-S-k`            |
 
-When there is an active region, `puni-forward-delete-char` and
-`puni-backward-delete-char` try to delete/kill that region instead (This
-behavior respects the variable `delete-active-region`). If it will cause an
-unbalanced state, Puni asks you to confirm.
+`puni-forward-delete-char` and `puni-backward-delete-char` delete a char
+softly. Or when the point is between a pair of delimiters, these delimiters
+will be deleted.
+
+When there is an active region, `puni-forward/backward-delete-char` try to
+delete/kill that region (This behavior respects the variable
+`delete-active-region`). If it will cause an unbalanced state, Puni prompts you
+for confirmation. You can disable the prompt by setting
+`puni-confirm-when-delete-unbalanced-active-region` to nil.
 
 You can also call `puni-kill-active-region` directly. It's bind to `C-w`.
 
@@ -358,8 +364,8 @@ these commands:
 | `puni-syntactic-backward-punct` | `M-)`              |
 
 These commands basically takes you to the next/previous punctuation, but it
-does more than that to give you a "syntactical navigating" feel. See their
-docstrings for detail. These are also handy in `text-mode`.
+does more than that to give you a "syntactical navigating" feeling. See their
+docstrings for details. These are also handy in `text-mode`.
 
 ### Marking commands
 
@@ -383,8 +389,9 @@ These commands don't have pre-defined keybindings in `puni-mode`.
 
 #### `puni-squeeze`
 
-This copies the list around point (which is the part inside the sexp around
-point), and delete the sexp around point. It can be used to "rewrap" a sexp:
+This copies the list around point (which is the part inside the delimiters),
+and delete the sexp around point (including the delimiters). It can be used to
+"rewrap" a sexp:
 
 ```elisp
 foo (bar|) baz
@@ -459,7 +466,7 @@ This exchanges the order of application of two closest outer forms.
 ## Define your own soft deletion commands
 
 The API for this is `puni-soft-delete-by-move`. Let's see a simplified
-definition of `puni-kill-line`. Notice the comments about arguments of
+definition of `puni-kill-line`. Notice the comments about the arguments of
 `puni-soft-delete-by-move`:
 
 ``` elisp
@@ -680,7 +687,7 @@ in a generic way. If you have any idea about this, please tell me!
 
 For now, you can use these for auto pairing:
 
-- `electric-pair-mode`: It's a built-in minor mode that automatically close
+- `electric-pair-mode`: It's a built-in minor mode that automatically closes
   your opening brackets. Its default behavior is carefully designed to keep
   brackets balanced when you insert things. I use this package daily, and I
   love it.
@@ -704,6 +711,8 @@ If you are surrounded by punipuni things, you feel safe and relieved. That's my
 feeling when using Puni: never need to worry about messing up parentheses
 anymore.
 
+"Parentheses Universalistic" is another explanation ;)
+
 ## Contributing
 
 PRs and issues are welcomed!
@@ -723,7 +732,7 @@ So, before you report a bug of the commands, I'd like you to:
 
   Here we are talking about the built-in `forward/backward-sexp` commands, not
   `puni-forward/backward-sexp`. When `puni-mode` is enabled, `C-M-f` and
-  `C-M-b` are bind to the latter ones.
+  `C-M-b` are bound to the latter ones.
 
 - Now, if you think there's any hope that it can be solved, post an issue with
   the investigations you've made.
