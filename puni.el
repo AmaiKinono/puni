@@ -1896,7 +1896,7 @@ When POINT is nil, the current cursor position is used."
 
 (defun puni--point-marker (&optional point)
   "Return the marker at POINT.
-If POINT isn"
+If POINT is nil, return the marker at point."
   (if point
       (save-excursion (goto-char point)
                       (point-marker))
