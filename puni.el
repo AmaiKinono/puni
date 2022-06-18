@@ -1902,6 +1902,28 @@ If POINT isn"
                       (point-marker))
     (point-marker)))
 
+(defun puni--backward-blanks-till-line-beg ()
+  "Move backward whitespaces till the beginning of line.
+Return t if success.  If the point is already at the beginning of
+line, also return t.  If there are non-blank chars between the
+beginning of line and the point, don't move and return nil."
+  (when (string-match (rx bol (* space) eos)
+                      (buffer-substring (line-beginning-position)
+                                        (point)))
+    (beginning-of-line)
+    t))
+
+(defun puni--forward-blanks-till-line-end ()
+  "Move forward whitespaces till the end of line.
+Return t if success.  If the point is already at the end of line,
+also return t.  If there are non-blank chars between the end of
+line and the point, don't move and return nil."
+  (when (string-match (rx bos (* space) eol)
+                      (buffer-substring (point)
+                                        (line-end-position)))
+    (end-of-line)
+    t))
+
 ;;;;; Commands
 
 ;;;###autoload
@@ -1932,8 +1954,9 @@ With positive prefix argument N, slurp that many sexps."
   (interactive "p")
   (setq n (or n 1))
   (when-let* ((end-of-list (puni-end-pos-of-list-around-point))
-              ;; We let the "delimiter" include the blanks and newline chars
-              ;; before it, so keyword delimiters like "end" in
+              ;; If the delimiter begins in its own line, we let the it include
+              ;; the blanks and the newline char before it, so keyword
+              ;; delimiters like "end" in
               ;;
               ;;     begin
               ;;         ...
@@ -1943,7 +1966,8 @@ With positive prefix argument N, slurp that many sexps."
               ;; could be moved correctly.
               (beg-of-delim (save-excursion
                               (goto-char end-of-list)
-                              (puni--backward-blanks)
+                              (and (puni--backward-blanks-till-line-beg)
+                                   (backward-char))
                               (point)))
               (end-of-delim (puni-end-pos-of-sexp-around-point))
               (delim-length (- end-of-delim beg-of-delim))
@@ -1982,7 +2006,8 @@ With positive prefix argument N, barf that many sexps."
               (end-of-list (puni-end-pos-of-list-around-point))
               (beg-of-delim (save-excursion
                               (goto-char end-of-list)
-                              (puni--backward-blanks)
+                              (and (puni--backward-blanks-till-line-beg)
+                                   (backward-char))
                               (point)))
               (end-of-delim (puni-end-pos-of-sexp-around-point))
               (delim-length (- end-of-delim beg-of-delim))
@@ -2024,7 +2049,8 @@ With positive prefix argument N, slurp that many sexps."
   (when-let* ((beg-of-list (puni-beginning-pos-of-list-around-point))
               (end-of-delim (save-excursion
                               (goto-char beg-of-list)
-                              (puni--forward-blanks)
+                              (and (puni--forward-blanks-till-line-end)
+                                   (forward-char))
                               (point)))
               (beg-of-delim (puni-beginning-pos-of-sexp-around-point))
               (delim-length (- end-of-delim beg-of-delim))
@@ -2075,7 +2101,8 @@ With positive prefix argument N, barf that many sexps."
               (beg-of-list (puni-beginning-pos-of-list-around-point))
               (end-of-delim (save-excursion
                               (goto-char beg-of-list)
-                              (puni--forward-blanks)
+                              (and (puni--forward-blanks-till-line-end)
+                                   (forward-char))
                               (point)))
               (beg-of-delim (puni-beginning-pos-of-sexp-around-point))
               (delim-length (- end-of-delim beg-of-delim))
