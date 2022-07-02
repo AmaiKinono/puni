@@ -76,6 +76,11 @@ Nil means use `pulse-highlight-start-face'."
   :type 'boolean
   :group 'puni)
 
+(defcustom puni-blink-for-slurp-barf t
+  "Whether blinking the moved delimiter when slurping & barfing."
+  :type 'boolean
+  :group 'puni)
+
 ;;;; Internals
 
 (defvar puni--debug nil
@@ -1924,6 +1929,12 @@ line and the point, don't move and return nil."
     (end-of-line)
     t))
 
+(defun puni--maybe-blink-region (beg end)
+  "Maybe blink the region between BEG and END.
+This depends on `puni-blink-for-slurp-barf'."
+  (when puni-blink-for-slurp-barf
+    (pulse-momentary-highlight-region beg end puni-blink-region-face)))
+
 ;;;;; Commands
 
 ;;;###autoload
@@ -1992,8 +2003,8 @@ With positive prefix argument N, slurp that many sexps."
       ;; Reindent the slurped sexps.
       (puni--reindent-region beg-of-delim (- end-of-sexp delim-length)
                              reindent-region-beg-column)
-      (pulse-momentary-highlight-region
-       (point) (- (point) delim-length-without-blanks) puni-blink-region-face)
+      (puni--maybe-blink-region
+       (point) (- (point) delim-length-without-blanks))
       (setq deactivate-mark nil))))
 
 ;;;###autoload
@@ -2034,8 +2045,7 @@ With positive prefix argument N, barf that many sexps."
         (puni--reindent-region (+ beg-of-sexp delim-length) end-of-delim
                                reindent-region-beg-column)
         (setq beg-of-moved-delim (- (point) delim-length-without-blanks))
-        (pulse-momentary-highlight-region (point) beg-of-moved-delim
-                                          puni-blink-region-face)
+        (puni--maybe-blink-region (point) beg-of-moved-delim)
         (setq deactivate-mark nil))
       (when (>= from beg-of-delim)
         (goto-char beg-of-moved-delim)))))
@@ -2085,10 +2095,9 @@ With positive prefix argument N, slurp that many sexps."
                       (puni--strict-forward-sexp-until-line-end))))
           (puni--reindent-region (point) following-sexps-end
                                  beg-column-after-sexp))
-        (pulse-momentary-highlight-region
+        (puni--maybe-blink-region
          moved-delim-beg-marker
-         (+ moved-delim-beg-marker delim-length-without-blanks)
-         puni-blink-region-face)
+         (+ moved-delim-beg-marker delim-length-without-blanks))
         (setq deactivate-mark nil)))))
 
 ;;;###autoload
@@ -2140,9 +2149,9 @@ With positive prefix argument N, barf that many sexps."
                       (puni--strict-forward-sexp-until-line-end))))
           (puni--reindent-region (+ (point) delim-length) following-sexps-end
                                  beg-column-after-sexp))
-        (pulse-momentary-highlight-region
+        (puni--maybe-blink-region
          (- moved-delim-end-marker delim-length-without-blanks)
-         moved-delim-end-marker puni-blink-region-face)
+         moved-delim-end-marker)
         (setq deactivate-mark nil))
       (when (<= from end-of-sexp)
         (goto-char moved-delim-end-marker)))))

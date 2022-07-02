@@ -430,6 +430,9 @@ foo (bar|) baz
 foo (bar|) baz
 ```
 
+The moved delimiter is blinked as a visual cue. You could set
+`puni-blink-for-slurp-barf` to nil to disable this behavior.
+
 #### `puni-raise`
 
 This uses the sexp at point to replace its parent sexp.
