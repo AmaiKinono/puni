@@ -4,7 +4,11 @@
 SHELL = /bin/sh
 
 .PHONY: check
-check: compile style
+check: test compile style
+
+.PHONY: test
+test:
+	$(SHELL) scripts/test.sh
 
 .PHONY: compile
 compile: clean

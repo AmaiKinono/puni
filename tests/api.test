@@ -1,0 +1,47 @@
+(chapter "Strict forward sexp: basic" :setup (emacs-lisp-mode))
+
+<<---
+(|1 (2 3))
+---
+
+(should (puni-strict-forward-sexp))
+
+<<---
+(1| (2 3))
+---
+
+(should (puni-strict-forward-sexp))
+
+<<---
+(1 (2 3)|)
+---
+
+(should-not (puni-strict-forward-sexp))
+
+<<---
+(1 (2 3)|)
+---
+
+(chapter "Strict backward sexp: basic" :setup (emacs-lisp-mode))
+
+<<---
+(1 (2 3)|)
+---
+
+(should (puni-strict-backward-sexp))
+
+<<---
+(1 |(2 3))
+---
+
+(should (puni-strict-backward-sexp))
+
+<<---
+(|1 (2 3))
+---
+
+(should-not (puni-strict-backward-sexp))
+
+<<---
+(|1 (2 3))
+---
