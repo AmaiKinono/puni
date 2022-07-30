@@ -1935,6 +1935,26 @@ This depends on `puni-blink-for-slurp-barf'."
   (when puni-blink-for-slurp-barf
     (pulse-momentary-highlight-region beg end puni-blink-region-face)))
 
+(defun puni--beg-pos-of-sexps-around-point ()
+  "Beginning position of consecutive delimiters after current list."
+  (when-let ((pt (puni-beginning-pos-of-sexp-around-point)))
+    (while (save-excursion (goto-char pt)
+                           (not (puni-after-sexp-p)))
+      (setq pt (save-excursion
+                 (goto-char pt)
+                 (puni-beginning-pos-of-sexp-around-point))))
+    pt))
+
+(defun puni--end-pos-of-sexps-around-point ()
+  "End position of consecutive delimiters after current list."
+  (when-let ((pt (puni-end-pos-of-sexp-around-point)))
+    (while (save-excursion (goto-char pt)
+                           (not (puni-before-sexp-p)))
+      (setq pt (save-excursion
+                 (goto-char pt)
+                 (puni-end-pos-of-sexp-around-point))))
+    pt))
+
 ;;;;; Commands
 
 ;;;###autoload
@@ -1961,7 +1981,13 @@ sexp around it."
 ;;;###autoload
 (defun puni-slurp-forward (&optional n)
   "Move the closing delimiter of sexp around point forward one sexp.
-With positive prefix argument N, slurp that many sexps."
+With positive prefix argument N, slurp that many sexps.
+
+This also works for consecutive opening delimiters after current
+list, e.g.,
+
+     ((|foo)) bar ;; Call `puni-slurp-backward'
+  => ((|foo bar))"
   (interactive "p")
   (setq n (or n 1))
   (when-let* ((end-of-list (puni-end-pos-of-list-around-point))
@@ -1980,7 +2006,7 @@ With positive prefix argument N, slurp that many sexps."
                               (and (puni--backward-blanks-till-line-beg)
                                    (backward-char))
                               (point)))
-              (end-of-delim (puni-end-pos-of-sexp-around-point))
+              (end-of-delim (puni--end-pos-of-sexps-around-point))
               (delim-length (- end-of-delim beg-of-delim))
               (delim-length-without-blanks (- end-of-delim end-of-list))
               (reindent-region-beg-column
@@ -2053,7 +2079,13 @@ With positive prefix argument N, barf that many sexps."
 ;;;###autoload
 (defun puni-slurp-backward (&optional n)
   "Move the opening delimiter of sexp around point backward one sexp.
-With positive prefix argument N, slurp that many sexps."
+With positive prefix argument N, slurp that many sexps.
+
+This also works for consecutive opening delimiters before current
+list, e.g.,
+
+     foo ((|bar)) ;; Call `puni-slurp-backward'
+  => ((foo |bar))"
   (interactive "p")
   (setq n (or n 1))
   (when-let* ((beg-of-list (puni-beginning-pos-of-list-around-point))
@@ -2062,7 +2094,7 @@ With positive prefix argument N, slurp that many sexps."
                               (and (puni--forward-blanks-till-line-end)
                                    (forward-char))
                               (point)))
-              (beg-of-delim (puni-beginning-pos-of-sexp-around-point))
+              (beg-of-delim (puni--beg-pos-of-sexps-around-point))
               (delim-length (- end-of-delim beg-of-delim))
               (delim-length-without-blanks (- beg-of-list beg-of-delim))
               (beg-of-sexp (save-excursion
