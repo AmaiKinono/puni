@@ -2459,7 +2459,8 @@ like before wrapping.  BEG and END are integers, not markers."
                     ((eq n 'to-beg) most-negative-fixnum)
                     ((numberp n) n)
                     (t (user-error
-                        "expected 'to-end, 'to-beg, 'region, or integer as N, got: %S"
+                        "expected 'to-end, 'to-beg, 'region, or integer as N, \
+got: %S"
                         n))))
            (beg (save-excursion
                   (if (>= n 0)
