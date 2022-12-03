@@ -1698,6 +1698,38 @@ argument means go forward."
       (puni-strict-backward-sexp 'skip-single-line-comments))))
 
 ;;;###autoload
+(defun puni-forward-sexp-or-up-list (&optional n)
+  "Go forward a sexp.
+This is the same as `puni-strict-forward-sexp', except that it
+jumps forward consecutive single-line comments, and will go over
+syntactic boundaries.
+
+With prefix argument N, go forward that many sexps.  Negative
+argument means go backward."
+  (interactive "^p")
+  (setq n (or n 1))
+  (if (< n 0) (puni-backward-sexp-or-up-list (- n))
+    (dotimes (_ n)
+      (or (puni-strict-forward-sexp 'skip-single-line-comments)
+          (puni-up-list)))))
+
+;;;###autoload
+(defun puni-backward-sexp-or-up-list (&optional n)
+  "Go backward a sexp.
+This is the same as `puni-strict-backward-sexp', except that it
+jumps backward consecutive single-line comments, and will go over
+syntactic boundaries.
+
+With prefix argument N, go backward that many sexps.  Negative
+argument means go forward."
+  (interactive "^p")
+  (setq n (or n 1))
+  (if (< n 0) (puni-forward-sexp-or-up-list (- n))
+    (dotimes (_ n)
+      (or (puni-strict-backward-sexp 'skip-single-line-comments)
+          (puni-up-list 'backward)))))
+
+;;;###autoload
 (defun puni-beginning-of-sexp ()
   "Go to the beginning of current sexp.
 This means go to the point after the opening delimiter.  If this
@@ -2207,6 +2239,24 @@ With positive prefix argument N, barf that many sexps."
      beg1 (- end2 open-delim-length close-delim-length)
      puni-blink-region-face)
     (setq deactivate-mark nil)))
+
+;;;###autoload
+(defun puni-splice-killing-backward ()
+  "Splice the list around point by removing its delimiters, and
+also kill all S-expressions before the point in the current list."
+  (interactive)
+  (puni-soft-delete-by-move
+   #'puni-beginning-of-list-around-point)
+  (puni-splice))
+
+;;;###autoload
+(defun puni-splice-killing-forward ()
+  "Splice the list around point by removing its delimiters, and
+also kill all S-expressions after the point in the current list."
+  (interactive)
+  (puni-soft-delete-by-move
+   #'puni-end-of-list-around-point)
+  (puni-splice))
 
 ;;;###autoload
 (defun puni-split ()
