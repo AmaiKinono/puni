@@ -1507,32 +1507,40 @@ Continue? "))
 With prefix argument N, kill that many chars.  Negative argument
 means kill chars forward.
 
+Pressing \\[universal-argument] one or more times without
+entering a number would force this command to delete 1 char
+backward, even if this breaks the balance.
+
 This respects the variable `delete-active-region'."
-  (interactive "p")
-  (setq n (or n 1))
-  (if (and (use-region-p)
-           delete-active-region
-           (eq n 1))
-      (if (eq delete-active-region 'kill)
-          (puni-kill-active-region)
-        (puni-delete-active-region))
-    (if (< n 0) (puni-forward-delete-char (- n))
-      (dotimes (_ n)
-        (or
-         (puni-soft-delete-by-move #'backward-char)
-         ;; Try to delete a dangling delimiter.  We want to handle this before
-         ;; the empty sexp case (see below), since if there's a dangling
-         ;; delimiter, `puni-bounds-of-sexp-around-point' can be laggy.
-         (when (puni-dangling-delimiter-p (1- (point)))
-           (delete-char -1)
-           t)
-         ;; Maybe we are inside an empty sexp, so we delete it.
-         (unless (or (puni-before-sexp-p)
-                     (puni-after-sexp-p))
-           (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
-             (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
-         ;; Nothing can be deleted, move backward.
-         (forward-char -1))))))
+  (interactive "P")
+  ;; If N is a non-empty list, It's typed by one or more C-u.
+  (if (and n (listp n))
+      (delete-char -1)
+    (setq n (prefix-numeric-value n))
+    (if (and (use-region-p)
+             delete-active-region
+             (eq n 1))
+        (if (eq delete-active-region 'kill)
+            (puni-kill-active-region)
+          (puni-delete-active-region))
+      (if (< n 0) (puni-forward-delete-char (- n))
+        (dotimes (_ n)
+          (or
+           (puni-soft-delete-by-move #'backward-char)
+           ;; Try to delete a dangling delimiter.  We want to handle this
+           ;; before the empty sexp case (see below), since if there's a
+           ;; dangling delimiter, `puni-bounds-of-sexp-around-point' can be
+           ;; laggy.
+           (when (puni-dangling-delimiter-p (1- (point)))
+             (delete-char -1)
+             t)
+           ;; Maybe we are inside an empty sexp, so we delete it.
+           (unless (or (puni-before-sexp-p)
+                       (puni-after-sexp-p))
+             (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+               (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+           ;; Nothing can be deleted, move backward.
+           (forward-char -1)))))))
 
 ;;;###autoload
 (defun puni-forward-delete-char (&optional n)
@@ -1540,26 +1548,32 @@ This respects the variable `delete-active-region'."
 With prefix argument N, kill that many chars.  Negative argument
 means kill chars backward.
 
+Pressing \\[universal-argument] one or more times without
+entering a number would force this command to delete 1 char
+forward, even if this breaks the balance.
+
 This respects the variable `delete-active-region'."
-  (interactive "p")
-  (setq n (or n 1))
-  (if (and (use-region-p)
-           delete-active-region
-           (eq n 1))
-      (if (eq delete-active-region 'kill)
-          (puni-kill-active-region)
-        (puni-delete-active-region))
-    (if (< n 0) (puni-backward-delete-char (- n))
-      (dotimes (_ n)
-        (or (puni-soft-delete-by-move #'forward-char)
-            (when (puni-dangling-delimiter-p)
-              (delete-char 1)
-              t)
-            (unless (or (puni-before-sexp-p)
-                        (puni-after-sexp-p))
-              (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
-                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
-            (forward-char 1))))))
+  (interactive "P")
+  (if (and n (listp n))
+      (delete-char 1)
+    (setq n (prefix-numeric-value n))
+    (if (and (use-region-p)
+             delete-active-region
+             (eq n 1))
+        (if (eq delete-active-region 'kill)
+            (puni-kill-active-region)
+          (puni-delete-active-region))
+      (if (< n 0) (puni-backward-delete-char (- n))
+        (dotimes (_ n)
+          (or (puni-soft-delete-by-move #'forward-char)
+              (when (puni-dangling-delimiter-p)
+                (delete-char 1)
+                t)
+              (unless (or (puni-before-sexp-p)
+                          (puni-after-sexp-p))
+                (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+                  (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
+              (forward-char 1)))))))
 
 ;;;;; Word
 
