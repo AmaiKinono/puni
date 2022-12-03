@@ -2424,46 +2424,64 @@ with it."
   "Wrap region between BEG and END with BEG-DELIM and END-DELIM.
 The indentation of the region is adjusted to make it the same
 like before wrapping.  BEG and END are integers, not markers."
-  (save-excursion
+  (let ((beg (min beg end))
+        (end (max beg end)))
+    (save-excursion
+      (goto-char end)
+      (insert end-delim)
+      (goto-char beg)
+      (insert beg-delim)
+      (puni--reindent-region
+       (+ beg (length beg-delim))
+       (+ end (length beg-delim) (length end-delim))
+       (puni--column-of-position beg))))
+  (if (< beg end)
+      (goto-char (+ beg (length beg-delim)))
     (goto-char end)
-    (insert end-delim)
-    (goto-char beg)
-    (insert beg-delim)
-    (puni--reindent-region
-     (+ beg (length beg-delim))
-     (+ end (length beg-delim) (length end-delim))
-     (puni--column-of-position beg)))
-    (goto-char (+ beg (length beg-delim))))
+    (puni-strict-forward-sexp)
+    (goto-char (- (point) (length end-delim)))))
 
-(defun puni--wrap-next-sexps (n beg-delim end-delim)
+;;;###autoload
+(defun puni-wrap-next-sexps (n beg-delim end-delim)
   "Wrap next N S-expressions with BEG-DELIM and END-DELIM.
-If N is negative, wrap previous N S-expressions before the point.
-If the `use-region-p' function returns t, N is ignored."
+- If N is a positive integer, wrap N sexps after the point.
+- If N is `to-end', wrap sexps from the point to the end of
+  current list.
+- If N is a negative integer, wrap N sexps before the point.
+- If N is `to-beg', wrap sexps from the point to the beginning of
+  current list.
+- If N is `region', and there's an active region, wrap the region
+  instead, otherwise throw an error."
   (puni--set-undo-position)
-  (let* ((n (cond ((use-region-p) nil)
-                  ((integerp n) n)
-                  ((consp n) most-positive-fixnum)
-                  (t 1)))
-         (blank-motion (if (or (null n) (>= n 0))
-                           #'puni--forward-blanks
-                         #'puni--backward-blanks))
-         (sexp-motion (if (or (null n) (>= n 0))
-                          #'puni-strict-forward-sexp
-                        #'puni-strict-backward-sexp))
-         (beg (if (null n) (point)
-                (save-excursion
-                  (funcall blank-motion)
-                  (point))))
-         (end (if (null n) (mark)
-                (save-excursion
+  (if (eq n 'region)
+      (puni--wrap-region (point) (mark) beg-delim end-delim)
+    (let* ((n (cond ((eq n 'to-end) most-positive-fixnum)
+                    ((eq n 'to-beg) most-negative-fixnum)
+                    ((numberp n) n)
+                    (t (user-error
+                        "expected 'to-end, 'to-beg, 'region, or integer as N, got: %S"
+                        n))))
+           (beg (save-excursion
+                  (if (>= n 0)
+                      (puni--forward-blanks)
+                    (puni--backward-blanks))
+                  (point)))
+           (end (save-excursion
                   (catch 'end-of-list
                     (dotimes (_ (abs n))
-                      (or (funcall sexp-motion)
+                      (or (if (>= n 0)
+                              (puni-strict-forward-sexp)
+                            (puni-strict-backward-sexp))
                           (throw 'end-of-list nil))))
-                  (point)))))
-    (if (< beg end)
-        (puni--wrap-region beg end beg-delim end-delim)
-      (puni--wrap-region end beg beg-delim end-delim))))
+                  (point))))
+      (puni--wrap-region beg end beg-delim end-delim))))
+
+(defun puni--parse-interactive-argument (n)
+  "Convert N to a value understood by `puni-wrap-next-sexps'."
+  (cond ((use-region-p) 'region)
+        ((integerp n) n)
+        ((consp n) 'to-end)
+        (t 1)))
 
 ;;;###autoload
 (defun puni-wrap-round (&optional n)
@@ -2474,7 +2492,9 @@ enclosing list. If a numeric prefix argument N is given, wrap N
 S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
-  (puni--wrap-next-sexps n "(" ")"))
+  (puni-wrap-next-sexps
+   (puni--parse-interactive-argument n)
+   "(" ")"))
 
 ;;;###autoload
 (defun puni-wrap-square (&optional n)
@@ -2485,7 +2505,9 @@ enclosing list.  If a numeric prefix argument N is given, wrap N
 S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
-  (puni--wrap-next-sexps n "[" "]"))
+  (puni-wrap-next-sexps
+   (puni--parse-interactive-argument n)
+   "[" "]"))
 
 ;;;###autoload
 (defun puni-wrap-curly (&optional n)
@@ -2496,7 +2518,9 @@ enclosing list.  If a numeric prefix argument N is given, wrap N
 S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
-  (puni--wrap-next-sexps n "{" "}"))
+  (puni-wrap-next-sexps
+   (puni--parse-interactive-argument n)
+   "{" "}"))
 
 ;;;###autoload
 (defun puni-wrap-angle (&optional n)
@@ -2507,7 +2531,9 @@ enclosing list.  If a numeric prefix argument N is given, wrap N
 S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
-  (puni--wrap-next-sexps n "<" ">"))
+  (puni-wrap-next-sexps
+   (puni--parse-interactive-argument n)
+   "<" ">"))
 
 ;;;; Puni mode
 
