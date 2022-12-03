@@ -2459,7 +2459,7 @@ like before wrapping.  BEG and END are integers, not markers."
                     ((eq n 'to-beg) most-negative-fixnum)
                     ((numberp n) n)
                     (t (user-error
-                        "expected 'to-end, 'to-beg, 'region, or integer as N, \
+                        "Expected 'to-end, 'to-beg, 'region, or integer as N, \
 got: %S"
                         n))))
            (beg (save-excursion
@@ -2489,7 +2489,7 @@ got: %S"
   "Wrap the following S-expression with parentheses.
 If a ‘C-u’ prefix argument is given, wrap all S-expressions
 following the point until the end of the buffer or of the
-enclosing list. If a numeric prefix argument N is given, wrap N
+enclosing list.  If a numeric prefix argument N is given, wrap N
 S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
