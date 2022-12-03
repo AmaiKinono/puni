@@ -720,9 +720,13 @@ anymore.
 
 PRs and issues are welcomed!
 
-But please keep in mind that, due to the unique approach Puni takes, it can't
-fix every use case in every language, or we'll end up with a lot of ad-hoc
-tricks, which contradicts with the unified approach taken by Puni.
+If you want to open a PR: Our CI automatically runs some tests, and I'd like to
+make sure they all passes before merging. You can run them locally by `$ make`.
+
+If you want to fill an issue: Please keep in mind that, due to the unique
+approach Puni takes, it can't fix every use case in every language, or we'll
+end up with a lot of ad-hoc tricks, which contradicts with the unified approach
+taken by Puni.
 
 So, before you report a bug of the commands, I'd like you to:
 
