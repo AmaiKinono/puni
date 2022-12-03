@@ -1699,12 +1699,8 @@ argument means go forward."
 
 ;;;###autoload
 (defun puni-forward-sexp-or-up-list (&optional n)
-  "Go forward a sexp.
-This is the same as `puni-strict-forward-sexp', except that it
-jumps forward consecutive single-line comments, and will go over
-syntactic boundaries.
-
-With prefix argument N, go forward that many sexps.  Negative
+  "Go forward a sexp, or an ending delimiter if there's no sexp forward.
+With prefix argument N, do this that many times.  Negative
 argument means go backward."
   (interactive "^p")
   (setq n (or n 1))
@@ -1715,12 +1711,8 @@ argument means go backward."
 
 ;;;###autoload
 (defun puni-backward-sexp-or-up-list (&optional n)
-  "Go backward a sexp.
-This is the same as `puni-strict-backward-sexp', except that it
-jumps backward consecutive single-line comments, and will go over
-syntactic boundaries.
-
-With prefix argument N, go backward that many sexps.  Negative
+  "Go backward a sexp, or a starting delimiter if there's no sexp backward.
+With prefix argument N, do this that many times.  Negative
 argument means go forward."
   (interactive "^p")
   (setq n (or n 1))
@@ -2242,20 +2234,20 @@ With positive prefix argument N, barf that many sexps."
 
 ;;;###autoload
 (defun puni-splice-killing-backward ()
-  "Splice the list around point by removing its delimiters, and
-also kill all S-expressions before the point in the current list."
+  "Kill all sexps before point in the current list, then splice it.
+Splicing is done by removing the delimiters of the list."
   (interactive)
   (puni-soft-delete-by-move
-   #'puni-beginning-of-list-around-point)
+   #'puni-beginning-of-list-around-point nil nil 'kill)
   (puni-splice))
 
 ;;;###autoload
 (defun puni-splice-killing-forward ()
-  "Splice the list around point by removing its delimiters, and
-also kill all S-expressions after the point in the current list."
+  "Kill all sexps after point in the current list, then splice it.
+Splicing is done by removing the delimiters of the list."
   (interactive)
   (puni-soft-delete-by-move
-   #'puni-end-of-list-around-point)
+   #'puni-end-of-list-around-point nil nil 'kill)
   (puni-splice))
 
 ;;;###autoload
