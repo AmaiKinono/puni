@@ -1484,7 +1484,7 @@ Continue? "))
 
 ;;;###autoload
 (defun puni-kill-region (beg end)
-  "Kill region.
+  "Kill region (from BEG to END).
 When this will cause unbalanced state, ask the user to confirm,
 unless `puni-confirm-when-delete-unbalanced-active-region'."
   (interactive "r")
