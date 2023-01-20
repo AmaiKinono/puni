@@ -2571,7 +2571,7 @@ S-expression."
     (define-key map (kbd "M-(") 'puni-syntactic-backward-punct)
     (define-key map (kbd "M-)") 'puni-syntactic-forward-punct)
     map)
-  "Keymap used for `puni-structural-editing-mode'.")
+  "Keymap used for `puni-mode'.")
 
 ;;;###autoload
 (progn
