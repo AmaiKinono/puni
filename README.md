@@ -465,6 +465,9 @@ This exchanges the order of application of two closest outer forms.
 - `puni-splice`: Unwrap the sexp around point.
 - `puni-split`: Split the sexp around point into two.
 - `puni-transpose`: Swap the sexps before and after point.
+- `puni-wrap-round`, `puni-wrap-square`, `puni-wrap-curly` and
+  `puni-wrap-angle`: Wrap sexps with all kinds of brackets. See their
+  docstrings for details.
 
 ## Define your own soft deletion commands
 
