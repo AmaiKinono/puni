@@ -2469,29 +2469,30 @@ like before wrapping.  BEG and END are integers, not markers."
   (puni--set-undo-position)
   (if (eq n 'region)
       (puni--wrap-region (point) (mark) beg-delim end-delim)
-    (let* ((n (cond ((eq n 'to-end) most-positive-fixnum)
-                    ((eq n 'to-beg) most-negative-fixnum)
-                    ((numberp n) n)
-                    (t (user-error
-                        "Expected 'to-end, 'to-beg, 'region, or integer as N, \
+    (let* ((end (pcase n
+                  ('to-end (puni-end-pos-of-list-around-point))
+                  ('to-beg (puni-beginning-pos-of-list-around-point))
+                  ((pred numberp)
+                   (save-excursion
+                     (catch 'end-of-list
+                       (dotimes (_ (abs n))
+                         (or (if (>= n 0)
+                                 (puni-strict-forward-sexp)
+                               (puni-strict-backward-sexp))
+                             (throw 'end-of-list nil))))
+                     (point)))
+                  (_ (user-error
+                      "Expected 'to-end, 'to-beg, 'region, or integer as N, \
 got: %S"
-                        n))))
+                      n))))
            (beg (save-excursion
-                  (if (>= n 0)
+                  (if (>= end (point))
                       (puni--forward-blanks)
                     (puni--backward-blanks))
-                  (point)))
-           (end (save-excursion
-                  (catch 'end-of-list
-                    (dotimes (_ (abs n))
-                      (or (if (>= n 0)
-                              (puni-strict-forward-sexp)
-                            (puni-strict-backward-sexp))
-                          (throw 'end-of-list nil))))
                   (point))))
       (puni--wrap-region beg end beg-delim end-delim))))
 
-(defun puni--parse-interactive-argument (n)
+(defun puni--parse-interactive-argument-for-wrap (n)
   "Convert N to a value understood by `puni-wrap-next-sexps'."
   (cond ((use-region-p) 'region)
         ((integerp n) n)
@@ -2508,7 +2509,7 @@ S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
   (puni-wrap-next-sexps
-   (puni--parse-interactive-argument n)
+   (puni--parse-interactive-argument-for-wrap n)
    "(" ")"))
 
 ;;;###autoload
@@ -2521,7 +2522,7 @@ S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
   (puni-wrap-next-sexps
-   (puni--parse-interactive-argument n)
+   (puni--parse-interactive-argument-for-wrap n)
    "[" "]"))
 
 ;;;###autoload
@@ -2534,7 +2535,7 @@ S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
   (puni-wrap-next-sexps
-   (puni--parse-interactive-argument n)
+   (puni--parse-interactive-argument-for-wrap n)
    "{" "}"))
 
 ;;;###autoload
@@ -2547,7 +2548,7 @@ S-expressions.  Automatically indent the newly wrapped
 S-expression."
   (interactive "P")
   (puni-wrap-next-sexps
-   (puni--parse-interactive-argument n)
+   (puni--parse-interactive-argument-for-wrap n)
    "<" ">"))
 
 ;;;; Puni mode
