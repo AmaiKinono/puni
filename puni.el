@@ -1484,33 +1484,40 @@ Continue? "))
         (puni-delete-region beg end)))))
 
 ;;;###autoload
-(defun puni-kill-region (beg end)
-  "Kill region (from BEG to END).
+(defun puni-kill-region ()
+  "Kill text between point and mark.
 When this will cause unbalanced state, ask the user to confirm,
-unless `puni-confirm-when-delete-unbalanced-active-region'."
-  (interactive "r")
+unless `puni-confirm-when-delete-unbalanced-active-region'.
+
+When `rectangle-mark-mode' is enabled, kill the marked
+rectangular region instead."
+  (interactive)
   (if (bound-and-true-p rectangle-mark-mode)
       ;; There is a rectangular region active.  The user probably
       ;; knows what they are doing, defer to the stock `kill-region'
       ;; function for it to handle the rectangular region.
-      (kill-region beg end 'region)
-    (when (or (not puni-confirm-when-delete-unbalanced-active-region)
-              (puni-region-balance-p beg end)
-              (y-or-n-p "Delete the region will cause unbalanced state.  \
+      (kill-region nil nil 'region)
+    (let ((beg (region-beginning))
+          (end (region-end)))
+      (when (or (not puni-confirm-when-delete-unbalanced-active-region)
+                (puni-region-balance-p beg end)
+                (y-or-n-p "Delete the region will cause unbalanced state.  \
   Continue? "))
-      (setq this-command 'kill-region)
-      (puni-delete-region beg end 'kill))))
+        (setq this-command 'kill-region)
+        (puni-delete-region beg end 'kill)))))
 
 ;;;###autoload
 (defun puni-kill-active-region ()
   "Kill active region.
 When this will cause unbalanced state, ask the user to confirm,
-unless `puni-confirm-when-delete-unbalanced-active-region'."
+unless `puni-confirm-when-delete-unbalanced-active-region' is
+nil.
+
+When `rectangle-mark-mode' is enabled, kill the marked
+rectangular region instead."
   (interactive)
   (if (use-region-p)
-      (let ((beg (region-beginning))
-            (end (region-end)))
-        (puni-kill-region beg end))
+      (puni-kill-region)
     (user-error "No active region")))
 
 ;;;;; Char
