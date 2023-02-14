@@ -1472,15 +1472,16 @@ When this will cause unbalanced state, ask the user to confirm,
 unless `puni-confirm-when-delete-unbalanced-active-region' is
 nil."
   (interactive)
-  (if (use-region-p)
-      (let ((beg (region-beginning))
-            (end (region-end)))
-        (when (or (not puni-confirm-when-delete-unbalanced-active-region)
-                  (puni-region-balance-p beg end)
-                  (y-or-n-p "Delete the region will cause unbalanced state.  \
+  (unless (use-region-p) (user-error "No active region"))
+  (if (bound-and-true-p rectangle-mark-mode)
+      (funcall region-extract-function 'delete-only)
+    (let ((beg (region-beginning))
+          (end (region-end)))
+      (when (or (not puni-confirm-when-delete-unbalanced-active-region)
+                (puni-region-balance-p beg end)
+                (y-or-n-p "Delete the region will cause unbalanced state.  \
 Continue? "))
-          (puni-delete-region beg end)))
-    (user-error "No active region")))
+        (puni-delete-region beg end)))))
 
 ;;;###autoload
 (defun puni-kill-region (beg end)
