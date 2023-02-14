@@ -1488,12 +1488,17 @@ Continue? "))
 When this will cause unbalanced state, ask the user to confirm,
 unless `puni-confirm-when-delete-unbalanced-active-region'."
   (interactive "r")
-  (when (or (not puni-confirm-when-delete-unbalanced-active-region)
-            (puni-region-balance-p beg end)
-            (y-or-n-p "Delete the region will cause unbalanced state.  \
-Continue? "))
-    (setq this-command 'kill-region)
-    (puni-delete-region beg end 'kill)))
+  (if (bound-and-true-p rectangle-mark-mode)
+      ;; There is a rectangular region active.  The user probably
+      ;; knows what they are doing, defer to the stock `kill-region'
+      ;; function for it to handle the rectangular region.
+      (kill-region beg end 'region)
+    (when (or (not puni-confirm-when-delete-unbalanced-active-region)
+              (puni-region-balance-p beg end)
+              (y-or-n-p "Delete the region will cause unbalanced state.  \
+  Continue? "))
+      (setq this-command 'kill-region)
+      (puni-delete-region beg end 'kill))))
 
 ;;;###autoload
 (defun puni-kill-active-region ()
