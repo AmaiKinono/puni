@@ -984,7 +984,7 @@ the user.  When that's desired, this works better than
         (while (and (eq (forward-line) 0)
                     (bolp)
                     (< (point) end))
-          (unless (puni--line-empty-p)
+          (unless (or (puni--line-empty-p) (puni--in-string-p))
             (let* ((orig-indentation (current-indentation))
                    (new-indentation (+ orig-indentation offset)))
               (when (wholenump new-indentation)
