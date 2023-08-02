@@ -446,6 +446,7 @@ Return the point if success."
                          (puni--end-of-single-line-comment-p))
                   (not (bobp))
                   (save-excursion (forward-line -1)
+                                  (puni--forward-syntax " ")
                                   (puni--begin-of-single-line-comment-p))))
       (unless (>= (point) from)
         (puni--forward-blanks from)
