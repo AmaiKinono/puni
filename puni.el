@@ -189,7 +189,9 @@ than BOUND."
     (let ((from (point)))
       (while (and (or (null bound) (> (point) bound))
                   (or (puni--backward-syntax " " bound)
-                      (when (bolp) (forward-char -1) t))))
+                      (when (and (not (bobp))
+                                 (bolp))
+                        (forward-char -1) t))))
       (let ((to (point)))
         (unless (eq from to) to)))))
 
