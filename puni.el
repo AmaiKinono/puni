@@ -1644,7 +1644,7 @@ This respects the variable `kill-whole-line'."
         (puni-backward-kill-line (- n))
       (setq to (save-excursion (forward-line (or n 1))
                                (point)))
-      (unless (or kill-whole-line
+      (unless (or (and kill-whole-line (bolp))
                   ;; This is default behavior of Emacs: When the prefix
                   ;; argument is specified, always kill whole line.
                   n
