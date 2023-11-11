@@ -76,10 +76,14 @@ Nil means use `pulse-highlight-start-face'."
   :type 'boolean
   :group 'puni)
 
-(defcustom puni-blink-for-slurp-barf t
-  "Whether blinking the moved delimiter when slurping & barfing."
+(defcustom puni-blink-for-sexp-manipulating t
+  "Whether using blinking as a visual cue when manipulating sexps."
   :type 'boolean
   :group 'puni)
+
+(make-obsolete-variable 'puni-blink-for-slurp-barf
+                        'puni-blink-for-sexp-manipulating
+                        "Nov 11 2023")
 
 ;;;; Internals
 
@@ -2068,8 +2072,8 @@ line and the point, don't move and return nil."
 
 (defun puni--maybe-blink-region (beg end)
   "Maybe blink the region between BEG and END.
-This depends on `puni-blink-for-slurp-barf'."
-  (when puni-blink-for-slurp-barf
+This depends on `puni-blink-for-sexp-manipulating'."
+  (when puni-blink-for-sexp-manipulating
     (pulse-momentary-highlight-region beg end puni-blink-region-face)))
 
 (defun puni--beg-pos-of-sexps-around-point ()
@@ -2340,9 +2344,8 @@ With positive prefix argument N, barf that many sexps."
     (puni-delete-region beg1 end1)
     (puni-delete-region (- beg2 open-delim-length)
                         (- end2 open-delim-length))
-    (pulse-momentary-highlight-region
-     beg1 (- end2 open-delim-length close-delim-length)
-     puni-blink-region-face)
+    (puni--maybe-blink-region
+     beg1 (- end2 open-delim-length close-delim-length))
     (setq deactivate-mark nil)))
 
 ;;;###autoload
