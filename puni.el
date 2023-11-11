@@ -273,7 +273,7 @@ of `char-syntax'."
 
 (defun puni--backward-same-syntax (&optional bound)
   "Backward version of `puni--forward-same-syntax'."
-  (when-let (syntax (puni--syntax-char-after (1- (point))))
+  (when-let ((syntax (puni--syntax-char-after (1- (point)))))
     (puni--backward-syntax (char-to-string syntax) bound)))
 
 ;;;;; Basic move: symbol
@@ -1912,8 +1912,8 @@ whole buffer is the list around point."
             (funcall find-bigger-bounds #'puni-bounds-of-sexp-at-point)))
          (bounds-of-list-around
           (lambda ()
-            (when-let (bounds (funcall find-bigger-bounds
-                                       #'puni-bounds-of-list-around-point))
+            (when-let ((bounds (funcall find-bigger-bounds
+                                        #'puni-bounds-of-list-around-point)))
               ;; Don't select blanks around the list.
               (save-excursion
                 (goto-char (car bounds))
