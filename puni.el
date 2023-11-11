@@ -1985,7 +1985,8 @@ whole buffer is the list around point."
 ;;;###autoload
 (defun puni-contract-region (arg)
   "Contract selected region by semantic units.
-When given a numeric prefix argument, contract that many times."
+When given a numeric prefix argument ARG, contract that many
+times."
   (interactive "p")
 
   ;; To avoid unpredictable behaviour, reset history if the last
