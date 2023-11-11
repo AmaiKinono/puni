@@ -318,7 +318,20 @@ If BOUND is non-nil, stop before BOUND."
   ;; of operators).  Unfortunately there are major modes where "<>" should be
   ;; delimiters, but are given the punctuation syntax.
   (puni--error-if-before-point bound)
-  (let ((from (point)))
+  (let* ((from (point))
+         ;; Some major mode gives symbol syntax to non-symbol chars, e.g., in
+         ;; nxml-mode:
+         ;;
+         ;;     <a>foo</a>
+         ;;
+         ;; All the punctuations here are given symbol syntax.  When this
+         ;; happens, we see if `forward-sexp-function' of the major mode knows
+         ;; the actual boundary of symbols (luckily, nxml-mode does).
+         (end-of-primitive-sexp (save-excursion
+                                  (puni--primitive-forward-sexp)))
+         (bound (if (and end-of-primitive-sexp bound)
+                    (min end-of-primitive-sexp bound)
+                  (or end-of-primitive-sexp bound))))
     (when (puni--symbol-prefix-p)
       (puni--forward-same-syntax bound))
     (while (and (puni--symbol-syntax-p)
@@ -330,7 +343,12 @@ If BOUND is non-nil, stop before BOUND."
 (defun puni--backward-symbol (&optional bound)
   "Backward version of `puni--forward-symbol'."
   (puni--error-if-after-point bound)
-  (let ((from (point)))
+  (let* ((from (point))
+         (beg-of-primitive-sexp (save-excursion
+                                  (puni--primitive-backward-sexp)))
+         (bound (if (and beg-of-primitive-sexp bound)
+                    (max beg-of-primitive-sexp bound)
+                  (or beg-of-primitive-sexp bound))))
     (while (and (puni--symbol-syntax-p (1- (point)))
                 (puni--backward-same-syntax bound)))
     (let ((to (point)))
