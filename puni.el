@@ -86,6 +86,14 @@ Nil means use `pulse-highlight-start-face'."
 (defvar puni--debug nil
   "Turn on debug mode when non-nil.")
 
+(defvar puni--region-history nil
+  "History of regions selected by `puni-expand-region'.
+This list takes the form ((MARK . POINT) ...) where MARK and POINT are
+both integers.")
+
+;; Region history should be unique for each buffer.
+(make-variable-buffer-local 'puni--region-history)
+
 ;;;;; Probes
 
 (defun puni--line-empty-p ()
@@ -1926,17 +1934,65 @@ whole buffer is the list around point."
          (bounds-of-sexp-around
           (lambda ()
             (funcall find-bigger-bounds #'puni-bounds-of-sexp-around-point)))
-         (replace-mark (eq last-command this-command))
-         current-bounds)
+         (replace-mark (eq last-command this-command)))
     (unless
-        (cl-dolist (f (list bounds-of-sexp-at bounds-of-list-around
+        (cl-dolist (f (list bounds-of-sexp-at
+                            bounds-of-list-around
                             bounds-of-sexp-around))
-          (setq current-bounds (funcall f))
-          (when (puni--interval-contain-p current-bounds orig-bounds)
-            (puni--mark-region (car current-bounds) (cdr current-bounds)
-                               nil replace-mark)
-            (cl-return t)))
+          (pcase-let* ((current-bounds (funcall f))
+                       (`(,beg . ,end) current-bounds))
+            (when (puni--interval-contain-p current-bounds orig-bounds)
+              (puni--mark-region beg end nil replace-mark)
+
+              ;; To avoid unpredictable behaviour, reset history if
+              ;; the last command was neither an expansion nor a
+              ;; contraction.
+              (unless (memq last-command '(puni-expand-region
+                                           puni-contract-region))
+                (setq puni--region-history nil))
+
+              ;; Record the newly expanded region so that contraction
+              ;; is later possible.  No need to do this if the whole
+              ;; buffer is selected.
+              (unless (and (= beg (point-min))
+                           (= end (point-max)))
+                (push (cons (min beg end)
+                            (max beg end))
+                      puni--region-history))
+
+              (cl-return t))))
+
       (user-error "Active region is not balanced"))))
+
+;;;###autoload
+(defun puni-contract-region (arg)
+  "Contract selected region by semantic units.
+When given a numeric prefix argument, contract that many times."
+  (interactive "p")
+
+  ;; To avoid unpredictable behaviour, reset history if the last
+  ;; command was neither an expansion nor a contraction.
+  (unless (memq last-command '(puni-expand-region
+                               puni-contract-region))
+    (setq puni--region-history nil))
+
+  (if (< arg 0)
+      ;; When given a negative ARG, call `puni-expand-region'.
+      (puni-expand-region)
+    (when puni--region-history
+      ;; When ARG is 0, return to initial history position.
+      (when (= arg 0)
+        (setq arg (length puni--region-history)))
+
+      ;; Pop history ARG times, or until it just has one element.
+      (while (and (cdr puni--region-history)
+                  (> arg 0))
+        (setq arg (1- arg))
+        (pop puni--region-history))
+
+      (pcase-let ((`(,beg . ,end) (car puni--region-history)))
+        (set-mark beg)
+        (goto-char end)))))
 
 ;;;; Sexp manipulating commands
 
