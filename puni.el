@@ -1680,8 +1680,7 @@ This respects the variable `kill-whole-line'."
       ;; may want to switch to `puni--reindent-region'.
       (when (looking-back (rx line-start (* blank)) (line-beginning-position))
         (if (puni--line-empty-p)
-            (when (bound-and-true-p indent-line-function)
-              (funcall indent-line-function))
+            (puni--indent-line)
           (back-to-indentation)))
       (setq from (point))
       (setq to (save-excursion (forward-line (or n 1))
