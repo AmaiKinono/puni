@@ -85,6 +85,13 @@ Nil means use `pulse-highlight-start-face'."
                         'puni-blink-for-sexp-manipulating
                         "Nov 11 2023")
 
+(defcustom puni-blink-pulse-delay pulse-delay
+  "The delay between changes in color when blinking.
+
+See `pulse-delay' and `puni-blink-for-sexp-manipulating'."
+  :type 'number
+  :group 'puni)
+
 ;;;; Internals
 
 (defvar puni--debug nil
@@ -2085,7 +2092,8 @@ line and the point, don't move and return nil."
   "Maybe blink the region between BEG and END.
 This depends on `puni-blink-for-sexp-manipulating'."
   (when puni-blink-for-sexp-manipulating
-    (pulse-momentary-highlight-region beg end puni-blink-region-face)))
+    (let ((pulse-delay puni-blink-pulse-delay))
+      (pulse-momentary-highlight-region beg end puni-blink-region-face))))
 
 (defun puni--beg-pos-of-sexps-around-point ()
   "Beginning position of consecutive delimiters after current list."
