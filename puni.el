@@ -1597,6 +1597,12 @@ This respects the variable `delete-active-region'."
            (when (puni-dangling-delimiter-p (1- (point)))
              (delete-char -1)
              t)
+           ;; We allow uncommenting by deleting. Deleting the opening char of a
+           ;; single line comment will just uncomment it.
+           (when (save-excursion (backward-char)
+                                 (puni--begin-of-single-line-comment-p))
+             (delete-char -1)
+             t)
            ;; Maybe we are inside an empty sexp, so we delete it.
            (unless (or (puni-before-sexp-p)
                        (puni-after-sexp-p))
@@ -1630,6 +1636,9 @@ This respects the variable `delete-active-region'."
         (dotimes (_ n)
           (or (puni-soft-delete-by-move #'forward-char)
               (when (puni-dangling-delimiter-p)
+                (delete-char 1)
+                t)
+              (when (puni--begin-of-single-line-comment-p)
                 (delete-char 1)
                 t)
               (unless (or (puni-before-sexp-p)
