@@ -1587,6 +1587,8 @@ This respects the variable `delete-active-region'."
       (if (< n 0) (puni-forward-delete-char (- n))
         (dotimes (_ n)
           (or
+           ;; This branch will throw an error at the beginning of the buffer
+           ;; (by `backward-char'), so we don't have to check it later.
            (puni-soft-delete-by-move #'backward-char)
            ;; Try to delete a dangling delimiter.  We want to handle this
            ;; before the empty sexp case (see below), since if there's a
