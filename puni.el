@@ -2683,6 +2683,23 @@ S-expression."
    (puni--parse-interactive-argument-for-wrap n)
    "<" ">"))
 
+;;;###autoload
+(defun puni-wrap-pick (&optional n)
+  "Completing-read interface for wrapping S-expressions.
+If a ‘C-u’ prefix argument is given, wrap all S-expressions
+following the point until the end of the buffer or of the
+enclosing list.  If a numeric prefix argument N is given, wrap N
+S-expressions. Automatically indent the newly wrapped
+S-expression."
+  (interactive "P")
+  (let ((choice (completing-read "Choose a wrapper: "
+                                 '("Angle" "Curly" "Round" "Square"))))
+    (pcase choice
+      ("Angle" (puni-wrap-angle n))
+      ("Curly" (puni-wrap-curly n))
+      ("Round" (puni-wrap-round n))
+      ("Square" (puni-wrap-squaren n)))))
+
 ;;;; Puni mode
 
 ;;;###autoload
