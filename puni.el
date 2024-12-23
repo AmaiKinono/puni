@@ -1686,44 +1686,46 @@ means kill lines backward.
 
 This respects the variable `kill-whole-line'."
   (interactive "P")
-  (if (and n (< n 0))
-      (puni-backward-kill-line (- n))
-    (let (from to col-after-spaces-in-line delete-spaces-to bolp)
-      (setq bolp (bolp))
-      ;; Move point properly so when the point is in the initial whitespaces of
-      ;; a line, or in an empty line, deleting the line indents what comes
-      ;; after the point properly.  Suggested by @andreyorst, see
-      ;; https://github.com/AmaiKinono/puni/issues/16#issuecomment-1344493831.
-      ;; This won't work for multi-line sexps coming after the point, and we
-      ;; may want to switch to `puni--reindent-region'.
-      (when (looking-back (rx line-start (* blank)) (line-beginning-position))
-        (if (puni--line-empty-p)
-            (puni--indent-line)
-          (back-to-indentation)))
-      (setq from (point))
-      (setq to (save-excursion (forward-line (or n 1))
-                               (point)))
-      (unless (or (and kill-whole-line bolp)
-                  ;; This is default behavior of Emacs: When the prefix
-                  ;; argument is specified, always kill whole line.
-                  n
-                  ;; This means we started from the end of a line, and the
-                  ;; following newline char should be killed.
-                  (eq to (1+ from))
-                  (save-excursion (goto-char to)
-                                  (and (eobp) (eolp))))
-        (setq to (1- to)))
-      (when (looking-at (rx (* blank)))
-        (setq col-after-spaces-in-line
-              (puni--column-of-position (match-end 0))))
-      (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
-      (when (and (looking-at (rx (* blank) (not (any blank "\n"))))
-                 (setq delete-spaces-to (1- (match-end 0)))
-                 (> (puni--column-of-position delete-spaces-to)
-                    col-after-spaces-in-line))
-        (save-excursion
-          (move-to-column col-after-spaces-in-line)
-          (puni-delete-region (point) delete-spaces-to))))))
+  (if (equal n '-)
+      (puni-backward-kill-line 1)
+    (if (and n (< n 0))
+        (puni-backward-kill-line (- n))
+      (let (from to col-after-spaces-in-line delete-spaces-to bolp)
+        (setq bolp (bolp))
+        ;; Move point properly so when the point is in the initial whitespaces of
+        ;; a line, or in an empty line, deleting the line indents what comes
+        ;; after the point properly. Suggested by @andreyorst, see
+        ;; https://github.com/AmaiKinono/puni/issues/16#issuecomment-1344493831.
+        ;; This won't work for multi-line sexps coming after the point, and we
+        ;; may want to switch to `puni--reindent-region'.
+        (when (looking-back (rx line-start (* blank)) (line-beginning-position))
+          (if (puni--line-empty-p)
+              (puni--indent-line)
+            (back-to-indentation)))
+        (setq from (point))
+        (setq to (save-excursion (forward-line (or n 1))
+                                 (point)))
+        (unless (or (and kill-whole-line bolp)
+                    ;; This is default behavior of Emacs: When the prefix
+                    ;; argument is specified, always kill whole line.
+                    n
+                    ;; This means we started from the end of a line, and the
+                    ;; following newline char should be killed.
+                    (eq to (1+ from))
+                    (save-excursion (goto-char to)
+                                    (and (eobp) (eolp))))
+          (setq to (1- to)))
+        (when (looking-at (rx (* blank)))
+          (setq col-after-spaces-in-line
+                (puni--column-of-position (match-end 0))))
+        (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
+        (when (and (looking-at (rx (* blank) (not (any blank "\n"))))
+                   (setq delete-spaces-to (1- (match-end 0)))
+                   (> (puni--column-of-position delete-spaces-to)
+                      col-after-spaces-in-line))
+          (save-excursion
+            (move-to-column col-after-spaces-in-line)
+            (puni-delete-region (point) delete-spaces-to)))))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
