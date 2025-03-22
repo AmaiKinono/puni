@@ -2686,24 +2686,22 @@ S-expression."
 ;;;; Puni mode
 
 ;;;###autoload
-(defvar puni-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "DEL") 'puni-backward-delete-char)
-    (define-key map (kbd "C-d") 'puni-forward-delete-char)
-    (define-key map (kbd "M-d") 'puni-forward-kill-word)
-    (define-key map (kbd "M-DEL") 'puni-backward-kill-word)
-    (define-key map (kbd "C-k") 'puni-kill-line)
-    (define-key map (kbd "C-S-k") 'puni-backward-kill-line)
-    (define-key map (kbd "C-c DEL") 'puni-force-delete)
-    (define-key map (kbd "C-w") 'puni-kill-region)
-    (define-key map (kbd "C-M-f") 'puni-forward-sexp)
-    (define-key map (kbd "C-M-b") 'puni-backward-sexp)
-    (define-key map (kbd "C-M-a") 'puni-beginning-of-sexp)
-    (define-key map (kbd "C-M-e") 'puni-end-of-sexp)
-    (define-key map (kbd "M-(") 'puni-syntactic-backward-punct)
-    (define-key map (kbd "M-)") 'puni-syntactic-forward-punct)
-    map)
-  "Keymap used for `puni-mode'.")
+(defvar-keymap puni-mode-map
+  :doc "Keymap used for `puni-mode'."
+  "<remap> <backward-delete-char>" #'puni-backward-delete-char
+  "<remap> <delete-forward-char>" #'puni-forward-delete-char
+  "<remap> <kill-word>" #'puni-forward-kill-word
+  "<remap> <backward-kill-word>" #'puni-backward-kill-word
+  "<remap> <kill-line>" #'puni-kill-line
+  "<remap> <backward-kill-line>" #'puni-backward-kill-line
+  "<remap> <kill-region>" #'puni-kill-region
+  "<remap> <forward-sexp>" #'puni-forward-sexp
+  "<remap> <backward-sexp>" #'puni-backward-sexp
+  "<remap> <beginning-of-defun>" #'puni-beginning-of-sexp
+  "<remap> <end-of-defun>" #'puni-end-of-sexp
+  "C-c DEL" #'puni-force-delete
+  "M-(" #'puni-syntactic-backward-punct
+  "M-)" #'puni-syntactic-forward-punct)
 
 ;;;###autoload
 (progn
