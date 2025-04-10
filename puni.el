@@ -854,8 +854,9 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--forward-same-syntax to)
-                    (puni--forward-blanks)
-                    (funcall probe)
+                    (progn
+                      (puni--forward-blanks)
+                      (funcall probe))
                     (setq pos (point))
                     (< (point) to))))
       ;; We've successfully reached TO, while keeping inside the thing.
@@ -884,8 +885,9 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--backward-same-syntax to)
-                    (puni--backward-blanks)
-                    (funcall probe)
+                    (progn
+                      (puni--backward-blanks)
+                      (funcall probe))
                     (setq pos (point))
                     (> (point) to))))
       (if (eq pos to)
