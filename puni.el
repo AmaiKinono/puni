@@ -923,13 +923,17 @@ hit the ending quote), return nil.
 
 Notice that a point inside the (multichar) quote is not
 considered as in the comment."
-  (puni--strict-primitive-forward-sexp-in-thing #'puni--in-comment-p
-                                                "comment"))
+  ;; Binding `parse-sexp-ignore-comments' is necessary because it is
+  ;; buffer-locally set to t in prog-mode.el.
+  (let ((parse-sexp-ignore-comments nil))
+    (puni--strict-primitive-forward-sexp-in-thing #'puni--in-comment-p
+                                                  "comment")))
 
 (defun puni-strict-backward-sexp-in-comment ()
   "Backward version of `puni-strict-forward-sexp-in-comment'."
-  (puni--strict-primitive-backward-sexp-in-thing #'puni--in-comment-p
-                                                 "comment"))
+  (let ((parse-sexp-ignore-comments nil))
+    (puni--strict-primitive-backward-sexp-in-thing #'puni--in-comment-p
+                                                   "comment")))
 
 ;;;;; Indent
 
