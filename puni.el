@@ -854,6 +854,7 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--forward-same-syntax to)
+                    (puni--forward-blanks)
                     (funcall probe)
                     (setq pos (point))
                     (< (point) to))))
@@ -883,6 +884,7 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--backward-same-syntax to)
+                    (puni--backward-blanks)
                     (funcall probe)
                     (setq pos (point))
                     (> (point) to))))
