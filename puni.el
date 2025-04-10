@@ -854,9 +854,7 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--forward-same-syntax to)
-                    (progn
-                      (puni--forward-blanks)
-                      (funcall probe))
+                    (funcall probe)
                     (setq pos (point))
                     (< (point) to))))
       ;; We've successfully reached TO, while keeping inside the thing.
@@ -885,9 +883,7 @@ and error \"Not in a THING\"."
     (when to
       (save-excursion
         (while (and (puni--backward-same-syntax to)
-                    (progn
-                      (puni--backward-blanks)
-                      (funcall probe))
+                    (funcall probe)
                     (setq pos (point))
                     (> (point) to))))
       (if (eq pos to)
@@ -926,13 +922,19 @@ considered as in the comment."
   ;; Binding `parse-sexp-ignore-comments' is necessary because it is
   ;; buffer-locally set to t in prog-mode.el.
   (let ((parse-sexp-ignore-comments nil))
-    (puni--strict-primitive-forward-sexp-in-thing #'puni--in-comment-p
+    (puni--strict-primitive-forward-sexp-in-thing (lambda ()
+                                                    (save-excursion
+                                                      (skip-syntax-forward "-")
+                                                      (puni--in-comment-p)))
                                                   "comment")))
 
 (defun puni-strict-backward-sexp-in-comment ()
   "Backward version of `puni-strict-forward-sexp-in-comment'."
   (let ((parse-sexp-ignore-comments nil))
-    (puni--strict-primitive-backward-sexp-in-thing #'puni--in-comment-p
+    (puni--strict-primitive-backward-sexp-in-thing (lambda ()
+                                                     (save-excursion
+                                                       (skip-syntax-forward "-")
+                                                       (puni--in-comment-p)))
                                                    "comment")))
 
 ;;;;; Indent
