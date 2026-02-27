@@ -468,6 +468,10 @@ This exchanges the order of application of two closest outer forms.
 - `puni-wrap-round`, `puni-wrap-square`, `puni-wrap-curly` and
   `puni-wrap-angle`: Wrap sexps with all kinds of brackets. See their
   docstrings for details.
+- `puni-change-inner`, `puni-copy-inner`, `puni-change-outer`,
+  `puni-copy-outer`: Prompts you for a delimiter, find the (smallest)
+  surrounding sexp with that delimiter, and kill/copy the inner/outer of that
+  sexp. See also the user option `puni-read-char-for-change-inner`.
 
 ## Define your own soft deletion commands
 

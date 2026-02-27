@@ -92,6 +92,14 @@ See `pulse-delay' and `puni-blink-for-sexp-manipulating'."
   :type 'number
   :group 'puni)
 
+(defcustom puni-read-char-for-change-inner nil
+  "Whether read the delimiter by `read-char' for `puni-change-inner' commands.
+The default is to use `read-string' which supports multichar delimiters,
+but `read-char' will give you similar experience as other Emacs \"change
+inner\" implementations and the vim \"ci\" command."
+  :type 'boolean
+  :group 'puni)
+
 ;;;; Internals
 
 (defvar puni--debug nil
@@ -2127,6 +2135,36 @@ This depends on `puni-blink-for-sexp-manipulating'."
                  (puni-end-pos-of-sexp-around-point))))
     pt))
 
+(defun puni--change-inner-get-region (open-delim &optional outer)
+  "Look up sexp hierarchy for one that starts with OPEN-DELIM.
+If OUTER is non-nil, the region of that sexp is returned.  Otherwise,
+the region of the inner list of that sexp is returned.
+
+Return nil if no appropriate region is found."
+  (let (beg-inner beg-outer end-inner end-outer)
+    (save-excursion
+      (cl-loop while
+               (and (setq beg-inner (puni-beginning-pos-of-list-around-point))
+                    (setq end-inner (puni-end-pos-of-list-around-point))
+                    (setq end-outer (puni-up-list))
+                    (setq beg-outer (puni-strict-backward-sexp)))
+               when
+               (string-equal open-delim
+                             (buffer-substring beg-outer beg-inner))
+               do
+               (cl-return (if outer
+                              (cons beg-outer end-outer)
+                            (cons beg-inner end-inner)))))))
+
+(defun puni--change-inner-read-delim ()
+  "A `read-string' wrapper for reading an opening delimiter."
+  (if puni-read-char-for-change-inner
+      (char-to-string (read-char "Open delimiter: "))
+    (minibuffer-with-setup-hook
+        (lambda () (when (bound-and-true-p electric-pair-mode)
+                     (electric-pair-local-mode -1)))
+      (read-string "Open delimiter: "))))
+
 ;;;;; Commands
 
 ;;;###autoload
@@ -2564,6 +2602,44 @@ with it."
       (puni--reindent-region pt (point) body-end-col 'no-recalculate)
 
       (goto-char pt-to-restore))))
+
+;;;###autoload
+(defun puni-change-inner ()
+  "Kill the inner of a surrounding sexp with the queried opening delimiter.
+The smallest surrounding sexp with that delimiter will be used."
+  (interactive)
+  (when-let* ((region (puni--change-inner-get-region
+                       (puni--change-inner-read-delim))))
+    (puni--set-undo-position)
+    (kill-region (car region) (cdr region))))
+
+;;;###autoload
+(defun puni-copy-inner ()
+  "Copy the inner of a surrounding sexp with the queried opening delimiter.
+The smallest surrounding sexp with that delimiter will be used."
+  (interactive)
+  (when-let* ((region (puni--change-inner-get-region
+                       (puni--change-inner-read-delim))))
+    (copy-region-as-kill (car region) (cdr region))))
+
+;;;###autoload
+(defun puni-change-outer ()
+  "Kill the smallest surrounding sexp with the queried opening delimiter."
+  (interactive)
+  (when-let* ((region (puni--change-inner-get-region
+                       (puni--change-inner-read-delim)
+                       'outer)))
+    (puni--set-undo-position)
+    (kill-region (car region) (cdr region))))
+
+;;;###autoload
+(defun puni-copy-outer ()
+  "Copy the smallest surrounding sexp with the queried opening delimiter."
+  (interactive)
+  (when-let* ((region (puni--change-inner-get-region
+                       (puni--change-inner-read-delim)
+                       'outer)))
+    (copy-region-as-kill (car region) (cdr region))))
 
 ;;; Wrapping
 
