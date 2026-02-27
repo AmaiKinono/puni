@@ -1219,7 +1219,8 @@ return nil."
      ;; At the end of a sexp.
      ((eq end-backward from) (cons beg-backward end-backward))
      ;; Inside a sexp.
-     ((and (setq smaller-bounds (puni--smaller-interval
+     ((and beg-forward end-forward beg-backward end-backward
+           (setq smaller-bounds (puni--smaller-interval
                                  (cons beg-forward end-forward)
                                  (cons beg-backward end-backward)))
            (<= (car smaller-bounds) from (cdr smaller-bounds)))
