@@ -1738,24 +1738,20 @@ This respects the variable `kill-whole-line'."
 (defun puni-backward-kill-line (&optional n)
   "Kill a line backward while keeping expressions balanced.
 With prefix argument N, kill that many lines.  Negative argument
-means kill lines forward.
-
-This respects the variable `kill-whole-line'."
+means kill lines forward."
   (interactive "P")
   (let ((from (point))
+        (bolp (bolp))
         to)
     (if (and n (< n 0))
         (puni-kill-line (- n))
       (unless (eq n 0)
-        (setq to (save-excursion (forward-line (if n (- n) -1))
-                                 (unless (bobp) (end-of-line))
-                                 (point)))
-        (unless (or kill-whole-line
-                    n
-                    (eq to (1- from))
-                    (save-excursion (goto-char to)
-                                    (and (bobp) (bolp))))
-          (setq to (1+ to)))
+        (setq to (save-excursion
+                   (when (eq (forward-line (if n (- n) -1)) 0)
+                     (end-of-line)
+                     (unless (or n bolp)
+                       (forward-char)))
+                   (point)))
         (puni-soft-delete from to 'strict-sexp 'beyond 'kill)))))
 
 ;;;;; Force delete
