@@ -981,6 +981,11 @@ be zero)."
   (save-excursion (goto-char pos)
                   (current-column)))
 
+(defun puni--position-of-column (col)
+  "Position of column COL in current line."
+  (save-excursion (move-to-column col)
+                  (point)))
+
 (defun puni--reindent-region (beg end original-column &optional no-recalculate)
   "Reindent region between BEG and END.
 Notice this doesn't reindent the region line-by-line like
@@ -1686,7 +1691,6 @@ means kill words forward."
 
 ;;;;; Line
 
-;;TODO: kill single line comment without killing newline.
 ;;;###autoload
 (defun puni-kill-line (&optional n)
   "Kill a line forward while keeping expressions balanced.
@@ -1697,42 +1701,58 @@ This respects the variable `kill-whole-line'."
   (interactive "P")
   (if (and n (< n 0))
       (puni-backward-kill-line (- n))
-    (let (from to col-after-spaces-in-line delete-spaces-to bolp)
-      (setq bolp (bolp))
-      ;; Move point properly so when the point is in the initial whitespaces of
-      ;; a line, or in an empty line, deleting the line indents what comes
-      ;; after the point properly.  Suggested by @andreyorst, see
-      ;; https://github.com/AmaiKinono/puni/issues/16#issuecomment-1344493831.
-      ;; This won't work for multi-line sexps coming after the point, and we
-      ;; may want to switch to `puni--reindent-region'.
-      (when (looking-back (rx line-start (* blank)) (line-beginning-position))
-        (if (puni--line-empty-p)
-            (puni--indent-line)
-          (back-to-indentation)))
-      (setq from (point))
-      (setq to (save-excursion (forward-line (or n 1))
-                               (point)))
+    (let ((from (point))
+          (col (current-column))
+          (to (save-excursion (forward-line (or n 1))
+                              (point)))
+          to-col
+          (bolp (bolp))
+          (eolp (eolp)))
+      ;; Unless we are killing the newline char intentionally, keep it.
       (unless (or (and kill-whole-line bolp)
+                  eolp
                   ;; This is default behavior of Emacs: When the prefix
                   ;; argument is specified, always kill whole line.
-                  n
-                  ;; This means we started from the end of a line, and the
-                  ;; following newline char should be killed.
-                  (eq to (1+ from))
-                  (save-excursion (goto-char to)
-                                  (and (eobp) (eolp))))
+                  n)
         (setq to (1- to)))
-      (when (looking-at (rx (* blank)))
-        (setq col-after-spaces-in-line
-              (puni--column-of-position (match-end 0))))
-      (puni-soft-delete from to 'strict-sexp 'beyond 'kill)
-      (when (and (looking-at (rx (* blank) (not (any blank "\n"))))
-                 (setq delete-spaces-to (1- (match-end 0)))
-                 (> (puni--column-of-position delete-spaces-to)
-                    col-after-spaces-in-line))
-        (save-excursion
-          (move-to-column col-after-spaces-in-line)
-          (puni-delete-region (point) delete-spaces-to))))))
+      ;; Get the region to delete.
+      (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
+                                            nil nil 'return-region)))
+        ;; `from' should be equal to (car region).
+        (setq to (cdr region))
+        (if (eq (line-number-at-pos from)
+                (line-number-at-pos to))
+            ;; We are deleting inside current line. If the point is inside the
+            ;; indentation, keep the indentation.
+            (when (looking-back (rx line-start (* blank))
+                                (line-beginning-position))
+              (unless (puni--line-empty-p)
+                (back-to-indentation)
+                (setq from (point)
+                      col (current-column))))
+          ;; We are deleting beyond current line, ergonomic handling of
+          ;; indentation is needed.
+          (setq to-col (puni--column-of-position to)))
+        ;; Try to align columns of the beg/end of deleted region, by extending
+        ;; the region using surrounding blanks.
+        (when (and to-col (< to-col col))
+          (save-excursion
+            (goto-char to)
+            (let ((goto (puni--position-of-column col)))
+              (puni--forward-blanks goto)
+              (setq to-col (current-column)
+                    to (point)))
+            (goto-char from)
+            (let ((goto (puni--position-of-column to-col)))
+              (puni--backward-blanks goto)
+              (setq col (current-column)
+                    from (point)))))
+        (prog1 (puni-delete-region from to 'kill)
+          ;; Reindent if alignment fails.
+          (when (and to-col (not (eq to-col col)))
+            (when-let* ((end (save-excursion
+                               (puni--strict-forward-sexp-until-line-end))))
+              (puni--reindent-region (point) end to-col))))))))
 
 ;;;###autoload
 (defun puni-backward-kill-line (&optional n)
