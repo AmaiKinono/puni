@@ -1572,7 +1572,9 @@ rectangular region instead."
   (interactive)
   (if (use-region-p)
       (puni-kill-region)
-    (user-error "No active region")))
+    ;; Fall back to Emacs default behavior which is signaling an error or what
+    ;; `kill-region-dwim' defines (since Emacs 31).
+    (call-interactively #'kill-region)))
 
 ;;;;; Char
 
