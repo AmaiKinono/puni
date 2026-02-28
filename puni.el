@@ -295,12 +295,12 @@ before BOUND.
 This is more robust than `forward-same-syntax' because it takes
 `syntax-table' text properties into account.  See the docstring
 of `char-syntax'."
-  (when-let ((syntax (puni--syntax-char-after)))
+  (when-let* ((syntax (puni--syntax-char-after)))
     (puni--forward-syntax (char-to-string syntax) bound)))
 
 (defun puni--backward-same-syntax (&optional bound)
   "Backward version of `puni--forward-same-syntax'."
-  (when-let ((syntax (puni--syntax-char-after (1- (point)))))
+  (when-let* ((syntax (puni--syntax-char-after (1- (point)))))
     (puni--backward-syntax (char-to-string syntax) bound)))
 
 ;;;;; Basic move: symbol
@@ -1193,7 +1193,7 @@ Return the point if it's moved."
 When BACKWARD is non-nil, move backward.
 
 Return the point if the move succeeded."
-  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+  (when-let* ((bounds (puni-bounds-of-sexp-around-point)))
     (if backward
         (goto-char (car bounds))
       (goto-char (cdr bounds)))))
@@ -1260,8 +1260,8 @@ return nil."
 It's returned as a cons cell.  If there's no sexp around point,
 meaning the point is at the top level scope, positions at the
 beginning/end of buffer is returned."
-  (when-let ((beg (puni-beginning-pos-of-list-around-point))
-             (end (puni-end-pos-of-list-around-point)))
+  (when-let* ((beg (puni-beginning-pos-of-list-around-point))
+              (end (puni-end-pos-of-list-around-point)))
     (cons beg end)))
 
 (defun puni-bounds-of-sexp-around-point ()
@@ -1294,13 +1294,13 @@ return nil."
 (defun puni-beginning-pos-of-sexp-around-point ()
   "Beginning position of sexp around point.
 If there's no sexp around point, return nil."
-  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+  (when-let* ((bounds (puni-bounds-of-sexp-around-point)))
     (car bounds)))
 
 (defun puni-end-pos-of-sexp-around-point ()
   "End position of sexp around point.
 If there's no sexp around point, return nil."
-  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+  (when-let* ((bounds (puni-bounds-of-sexp-around-point)))
     (cdr bounds)))
 
 ;;;;; API: Balance test
@@ -1498,9 +1498,9 @@ but return its beginning and end position in a cons cell."
                            to from strict-sexp 'within kill nil return-region))
                          (_ (error "Invalid FAIL-ACTION"))))))
       (or (pcase style
-            ('beyond (when-let ((goal (funcall beyond-goal)))
+            ('beyond (when-let* ((goal (funcall beyond-goal)))
                        (funcall act-on-region from goal)))
-            ('within (when-let ((goal (funcall within-goal)))
+            ('within (when-let* ((goal (funcall within-goal)))
                        (funcall act-on-region from goal)))
             ('precise (when (puni-region-balance-p from to strict-sexp)
                         (funcall act-on-region from to))))
@@ -1620,7 +1620,7 @@ This respects the variable `delete-active-region'."
            ;; Maybe we are inside an empty sexp, so we delete it.
            (unless (or (puni-before-sexp-p)
                        (puni-after-sexp-p))
-             (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+             (when-let* ((sexp-bounds (puni-bounds-of-sexp-around-point)))
                (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
            ;; Nothing can be deleted, move backward.
            (forward-char -1)))))))
@@ -1657,7 +1657,7 @@ This respects the variable `delete-active-region'."
                 t)
               (unless (or (puni-before-sexp-p)
                           (puni-after-sexp-p))
-                (when-let ((sexp-bounds (puni-bounds-of-sexp-around-point)))
+                (when-let* ((sexp-bounds (puni-bounds-of-sexp-around-point)))
                   (puni-delete-region (car sexp-bounds) (cdr sexp-bounds))))
               (forward-char 1)))))))
 
@@ -1913,7 +1913,7 @@ feeling."
                        (eq (puni--syntax-char-after (1- (point))) ?_)))
 
           (setq done t))))
-    (when-let ((syntax-after (puni--syntax-char-after (1- (point)))))
+    (when-let* ((syntax-after (puni--syntax-char-after (1- (point)))))
       (unless (memq syntax-after '(?\( ?\)))
         (when (looking-at (concat (regexp-quote (char-to-string (char-before)))
                                   "*"))
@@ -1942,7 +1942,7 @@ feeling."
                        (puni--in-string-p)
                        (eq (puni--syntax-char-after) ?_)))
           (setq done t))))
-    (when-let ((syntax-after (puni--syntax-char-after)))
+    (when-let* ((syntax-after (puni--syntax-char-after)))
       (unless (memq syntax-after '(?\( ?\)))
         (when (looking-back (concat (regexp-quote (char-to-string
                                                    (char-after)))
@@ -1956,7 +1956,7 @@ feeling."
 (defun puni-mark-sexp-at-point ()
   "Mark the sexp at or after point."
   (interactive)
-  (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+  (when-let* ((bounds (puni-bounds-of-sexp-at-point)))
     (puni--mark-region (car bounds) (cdr bounds))))
 
 ;;;###autoload
@@ -1967,14 +1967,14 @@ i.e., after its opening delimiter, and before its closing
 delimiter.  If the point is already at the top scope, then the
 whole buffer is the list around point."
   (interactive)
-  (when-let ((bounds (puni-bounds-of-list-around-point)))
+  (when-let* ((bounds (puni-bounds-of-list-around-point)))
     (puni--mark-region (car bounds) (cdr bounds))))
 
 ;;;###autoload
 (defun puni-mark-sexp-around-point ()
   "Mark the sexp around point."
   (interactive)
-  (when-let ((bounds (puni-bounds-of-sexp-around-point)))
+  (when-let* ((bounds (puni-bounds-of-sexp-around-point)))
     (puni--mark-region (car bounds) (cdr bounds))))
 
 ;;;###autoload
@@ -1996,8 +1996,8 @@ whole buffer is the list around point."
             (funcall find-bigger-bounds #'puni-bounds-of-sexp-at-point)))
          (bounds-of-list-around
           (lambda ()
-            (when-let ((bounds (funcall find-bigger-bounds
-                                        #'puni-bounds-of-list-around-point)))
+            (when-let* ((bounds (funcall find-bigger-bounds
+                                         #'puni-bounds-of-list-around-point)))
               ;; Don't select blanks around the list.
               (save-excursion
                 (goto-char (car bounds))
@@ -2133,7 +2133,7 @@ This depends on `puni-blink-for-sexp-manipulating'."
 
 (defun puni--beg-pos-of-sexps-around-point ()
   "Beginning position of consecutive delimiters after current list."
-  (when-let ((pt (puni-beginning-pos-of-sexp-around-point)))
+  (when-let* ((pt (puni-beginning-pos-of-sexp-around-point)))
     (while (save-excursion (goto-char pt)
                            (not (puni-after-sexp-p)))
       (setq pt (save-excursion
@@ -2143,7 +2143,7 @@ This depends on `puni-blink-for-sexp-manipulating'."
 
 (defun puni--end-pos-of-sexps-around-point ()
   "End position of consecutive delimiters after current list."
-  (when-let ((pt (puni-end-pos-of-sexp-around-point)))
+  (when-let* ((pt (puni-end-pos-of-sexp-around-point)))
     (while (save-excursion (goto-char pt)
                            (not (puni-before-sexp-p)))
       (setq pt (save-excursion
@@ -2192,15 +2192,15 @@ first, type in the new delimiters, and then yank inside them.
 When there's an active balanced region, copy it and delete the
 sexp around it."
   (interactive)
-  (when-let ((bounds-inside
-              (if (use-region-p)
-                  (let ((beg (region-beginning))
-                        (end (region-end)))
-                    (unless (puni-region-balance-p beg end 'strict)
-                      (user-error "The active region is not balanced"))
-                    (cons beg end))
-                (puni-bounds-of-list-around-point)))
-             (bounds-around (puni-bounds-of-sexp-around-point)))
+  (when-let* ((bounds-inside
+               (if (use-region-p)
+                   (let ((beg (region-beginning))
+                         (end (region-end)))
+                     (unless (puni-region-balance-p beg end 'strict)
+                       (user-error "The active region is not balanced"))
+                     (cons beg end))
+                 (puni-bounds-of-list-around-point)))
+              (bounds-around (puni-bounds-of-sexp-around-point)))
     (copy-region-as-kill (car bounds-inside) (cdr bounds-inside))
     (puni-delete-region (car bounds-around) (cdr bounds-around))))
 
@@ -2348,9 +2348,9 @@ list, e.g.,
                                sexp-beg-column)
         ;; Reindent the sexps after the slurped sexps, as the indentation may
         ;; be altered by the slurping.
-        (when-let ((following-sexps-end
-                    (save-excursion
-                      (puni--strict-forward-sexp-until-line-end))))
+        (when-let* ((following-sexps-end
+                     (save-excursion
+                       (puni--strict-forward-sexp-until-line-end))))
           (puni--reindent-region (point) following-sexps-end
                                  beg-column-after-sexp))
         (puni--maybe-blink-region
@@ -2402,9 +2402,9 @@ With positive prefix argument N, barf that many sexps."
                                sexp-beg-column)
         ;; Reindent the sexps after the inserted delimiter, as the indentation
         ;; may be altered by the barfing.
-        (when-let ((following-sexps-end
-                    (save-excursion
-                      (puni--strict-forward-sexp-until-line-end))))
+        (when-let* ((following-sexps-end
+                     (save-excursion
+                       (puni--strict-forward-sexp-until-line-end))))
           (puni--reindent-region (+ (point) delim-length) following-sexps-end
                                  beg-column-after-sexp))
         (puni--maybe-blink-region
@@ -2476,7 +2476,7 @@ Splicing is done by removing the delimiters of the list."
 
       (save-excursion
         (goto-char beg-of-next-sexp)
-        (when-let ((end-of-next-sexp (puni-strict-forward-sexp)))
+        (when-let* ((end-of-next-sexp (puni-strict-forward-sexp)))
           (puni--reindent-region (+ beg-of-next-sexp open-delim-length)
                                  (- end-of-next-sexp (length end-delim))
                                  col-of-next-sexp 'no-recalculate)
@@ -2526,14 +2526,14 @@ with it."
   (let (beg1 end1 beg2 end2 fail-flag)
     (save-excursion
       (puni-strict-backward-sexp)
-      (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+      (when-let* ((bounds (puni-bounds-of-sexp-at-point)))
         (setq beg1 (car bounds)
               end1 (cdr bounds))
         (unless (eq beg1 (point))
           (setq fail-flag t))))
     (save-excursion
       (puni--forward-blanks)
-      (when-let ((bounds (puni-bounds-of-sexp-at-point)))
+      (when-let* ((bounds (puni-bounds-of-sexp-at-point)))
         (setq beg2 (car bounds)
               end2 (cdr bounds))
         (unless (eq beg2 (point))
@@ -2558,27 +2558,27 @@ with it."
 (defun puni-convolute ()
   "Exchange the order of application of two closest outer forms."
   (interactive)
-  (when-let ((body-beg (point))
-             (body-end (puni-end-pos-of-list-around-point))
-             (body-beg-col (current-column))
-             (body-end-col (puni--column-of-position body-end))
-             (inner-bounds (puni-bounds-of-sexp-around-point))
-             (inner-beg (car inner-bounds))
-             (inner-end (cdr inner-bounds))
-             (inner-beg-col (puni--column-of-position inner-beg))
-             (inner-end-col (puni--column-of-position inner-end))
-             (outer-bounds (save-excursion
-                             (goto-char (car inner-bounds))
-                             (puni-bounds-of-sexp-around-point)))
-             (outer-beg (car outer-bounds))
-             (outer-end (cdr outer-bounds))
-             (outer-beg-col (puni--column-of-position outer-beg))
-             (outer-end-col (puni--column-of-position outer-end))
-             (body (buffer-substring body-beg body-end))
-             (inner-open (buffer-substring inner-beg body-beg))
-             (inner-close (buffer-substring body-end inner-end))
-             (outer-open (buffer-substring outer-beg inner-beg))
-             (outer-close (buffer-substring inner-end outer-end)))
+  (when-let* ((body-beg (point))
+              (body-end (puni-end-pos-of-list-around-point))
+              (body-beg-col (current-column))
+              (body-end-col (puni--column-of-position body-end))
+              (inner-bounds (puni-bounds-of-sexp-around-point))
+              (inner-beg (car inner-bounds))
+              (inner-end (cdr inner-bounds))
+              (inner-beg-col (puni--column-of-position inner-beg))
+              (inner-end-col (puni--column-of-position inner-end))
+              (outer-bounds (save-excursion
+                              (goto-char (car inner-bounds))
+                              (puni-bounds-of-sexp-around-point)))
+              (outer-beg (car outer-bounds))
+              (outer-end (cdr outer-bounds))
+              (outer-beg-col (puni--column-of-position outer-beg))
+              (outer-end-col (puni--column-of-position outer-end))
+              (body (buffer-substring body-beg body-end))
+              (inner-open (buffer-substring inner-beg body-beg))
+              (inner-close (buffer-substring body-end inner-end))
+              (outer-open (buffer-substring outer-beg inner-beg))
+              (outer-close (buffer-substring inner-end outer-end)))
     (let* (pt pt-to-restore
               (maybe-move-to-column
                (lambda (col)
