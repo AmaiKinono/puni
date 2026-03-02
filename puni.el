@@ -1669,7 +1669,6 @@ This respects the variable `delete-active-region'."
 With prefix argument N, kill that many words.  Negative argument
 means kill words backward."
   (interactive "p")
-  (setq n (or n 1))
   (if (< n 0)
       (puni-backward-kill-word (- n))
     (dotimes (_ n)
@@ -1682,7 +1681,6 @@ means kill words backward."
 With prefix argument N, kill that many words.  Negative argument
 means kill words forward."
   (interactive "p")
-  (setq n (or n 1))
   (if (< n 0)
       (puni-forward-kill-word (- n))
     (dotimes (_ n)
@@ -1699,6 +1697,8 @@ means kill lines backward.
 
 This respects the variable `kill-whole-line'."
   (interactive "P")
+  ;; We don't use the "p" descriptor as it converts nil to 1.
+  (when n (setq n (prefix-numeric-value n)))
   (if (and n (< n 0))
       (puni-backward-kill-line (- n))
     (let ((from (point))
@@ -1759,15 +1759,15 @@ This respects the variable `kill-whole-line'."
   "Kill a line backward while keeping expressions balanced.
 With prefix argument N, kill that many lines.  Negative argument
 means kill lines forward."
-  (interactive "P")
+  (interactive "p")
   (let ((from (point))
         (bolp (bolp))
         to)
-    (if (and n (< n 0))
+    (if (< n 0)
         (puni-kill-line (- n))
       (unless (eq n 0)
         (setq to (save-excursion
-                   (when (eq (forward-line (if n (- n) -1)) 0)
+                   (when (eq (forward-line (- n)) 0)
                      (end-of-line)
                      (unless (or n bolp)
                        (forward-char)))
@@ -1800,7 +1800,6 @@ jumps forward consecutive single-line comments.
 With prefix argument N, go forward that many sexps.  Negative
 argument means go backward."
   (interactive "^p")
-  (setq n (or n 1))
   (if (< n 0) (puni-backward-sexp (- n))
     (dotimes (_ n)
       (puni-strict-forward-sexp 'skip-single-line-comments))))
@@ -1814,7 +1813,6 @@ jumps backward consecutive single-line comments.
 With prefix argument N, go backward that many sexps.  Negative
 argument means go forward."
   (interactive "^p")
-  (setq n (or n 1))
   (if (< n 0) (puni-forward-sexp (- n))
     (dotimes (_ n)
       (puni-strict-backward-sexp 'skip-single-line-comments))))
@@ -1837,7 +1835,6 @@ argument means go backward."
 With prefix argument N, do this that many times.  Negative
 argument means go forward."
   (interactive "^p")
-  (setq n (or n 1))
   (if (< n 0) (puni-forward-sexp-or-up-list (- n))
     (dotimes (_ n)
       (or (puni-strict-backward-sexp 'skip-single-line-comments)
@@ -2215,7 +2212,6 @@ list, e.g.,
      ((|foo)) bar ;; Call `puni-slurp-backward'
   => ((|foo bar))"
   (interactive "p")
-  (setq n (or n 1))
   (when-let* ((end-of-list (puni-end-pos-of-list-around-point))
               ;; If the delimiter begins in its own line, we let the it include
               ;; the blanks and the newline char before it, so keyword
@@ -2264,7 +2260,6 @@ list, e.g.,
   "Move the closing delimiter of sexp around point backward one sexp.
 With positive prefix argument N, barf that many sexps."
   (interactive "p")
-  (setq n (or n 1))
   (when-let* ((from (point))
               (end-of-list (puni-end-pos-of-list-around-point))
               (beg-of-delim (save-excursion
@@ -2313,7 +2308,6 @@ list, e.g.,
      foo ((|bar)) ;; Call `puni-slurp-backward'
   => ((foo |bar))"
   (interactive "p")
-  (setq n (or n 1))
   (when-let* ((beg-of-list (puni-beginning-pos-of-list-around-point))
               (end-of-delim (save-excursion
                               (goto-char beg-of-list)
@@ -2363,7 +2357,6 @@ list, e.g.,
   "Move the opening delimiter of sexp around point forward one sexp.
 With positive prefix argument N, barf that many sexps."
   (interactive "p")
-  (setq n (or n 1))
   (when-let* ((from (point))
               (beg-of-list (puni-beginning-pos-of-list-around-point))
               (end-of-delim (save-excursion
