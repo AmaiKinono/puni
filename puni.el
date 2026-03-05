@@ -1720,16 +1720,8 @@ This respects the variable `kill-whole-line'."
                                             nil nil 'return-region)))
         ;; `from' should be equal to (car region).
         (setq to (cdr region))
-        (if (eq (line-number-at-pos from)
-                (line-number-at-pos to))
-            ;; We are deleting inside current line. If the point is inside the
-            ;; indentation, keep the indentation.
-            (when (looking-back (rx line-start (* blank))
-                                (line-beginning-position))
-              (unless (puni--line-empty-p)
-                (back-to-indentation)
-                (setq from (point)
-                      col (current-column))))
+        (unless (eq (line-number-at-pos from)
+                    (line-number-at-pos to))
           ;; We are deleting beyond current line, ergonomic handling of
           ;; indentation is needed.
           (setq to-col (puni--column-of-position to)))
