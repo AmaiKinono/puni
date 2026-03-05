@@ -1750,21 +1750,49 @@ This respects the variable `kill-whole-line'."
 (defun puni-backward-kill-line (&optional n)
   "Kill a line backward while keeping expressions balanced.
 With prefix argument N, kill that many lines.  Negative argument
-means kill lines forward."
-  (interactive "p")
-  (let ((from (point))
-        (bolp (bolp))
-        to)
-    (if (< n 0)
-        (puni-kill-line (- n))
-      (unless (eq n 0)
-        (setq to (save-excursion
-                   (when (eq (forward-line (- n)) 0)
-                     (end-of-line)
-                     (unless (or n bolp)
-                       (forward-char)))
-                   (point)))
-        (puni-soft-delete from to 'strict-sexp 'beyond 'kill)))))
+means kill lines forward.
+
+This respects the variable `kill-whole-line': If non-nil, call this
+command with no arg at end of line kills the whole line."
+  (interactive "P")
+  (when n (setq n (prefix-numeric-value n)))
+  (if (and n (> n 0))
+      (puni-kill-line (- n))
+    (let ((from (point))
+          (col (current-column))
+          (to (save-excursion (forward-line (- (or n 1)))
+                              (end-of-line)
+                              (point)))
+          to-col
+          (bolp (bolp))
+          (eolp (eolp)))
+      (unless (or (and kill-whole-line eolp)
+                  bolp
+                  n)
+        (setq to (1+ to)))
+      (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
+                                            nil nil 'return-region)))
+        (setq to (car region))
+        (unless (eq (line-number-at-pos from)
+                    (line-number-at-pos to))
+          (setq to-col (puni--column-of-position to)))
+        (when (and to-col (> to-col col))
+          (save-excursion
+            (goto-char to)
+            (let ((goto (puni--position-of-column col)))
+              (puni--backward-blanks goto)
+              (setq to-col (current-column)
+                    to (point)))
+            (goto-char from)
+            (let ((goto (puni--position-of-column to-col)))
+              (puni--forward-blanks goto)
+              (setq col (current-column)
+                    from (point)))))
+        (prog1 (puni-delete-region from to 'kill)
+          (when (and to-col (not (eq to-col col)))
+            (when-let* ((end (save-excursion
+                               (puni--strict-forward-sexp-until-line-end))))
+              (puni--reindent-region (point) end col))))))))
 
 ;;;;; Force delete
 
