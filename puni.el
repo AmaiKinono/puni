@@ -1716,7 +1716,12 @@ This respects the variable `kill-whole-line'."
                   eolp
                   ;; This is default behavior of Emacs: When the prefix
                   ;; argument is specified, always kill whole line.
-                  n)
+                  n
+                  ;; This means we are deleting the last line, and the buffer
+                  ;; doesn't have a trailing newline. We don't move `to' in
+                  ;; this situation as that will leave the last char not
+                  ;; deleted.
+                  (not (eq (char-before to) ?\n)))
         (setq to (1- to)))
       ;; Get the region to delete.
       (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
@@ -1769,10 +1774,13 @@ command with no arg at end of line kills the whole line."
           to-col
           (bolp (bolp))
           (eolp (eolp)))
-      (unless (or (and kill-whole-line eolp)
-                  bolp
-                  n)
-        (setq to (1+ to)))
+      ;; This means we are deleting the first line.
+      (if (not (eq (char-after to) ?\n))
+          (setq to (line-beginning-position))
+        (unless (or (and kill-whole-line eolp)
+                    bolp
+                    n)
+          (setq to (1+ to))))
       (when-let* ((region (puni-soft-delete from to 'strict-sexp 'beyond
                                             nil nil 'return-region)))
         (setq to (car region))
